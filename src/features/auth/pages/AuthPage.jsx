@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { LoginForm } from "../components/LoginForm";
 import { ForgotPasswordForm } from "../components/ForgotPasswordForm";
-import ByteGoLogo from "../../assets/img/Bite&GoLogo.png";
+import ByteGoLogo from "../../../assets/img/Bite&GoLogo.png";
 
 const AuthPage = () => {
     const [isForgot, setIsForgot] = useState(false);
