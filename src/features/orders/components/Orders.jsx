@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, Filter, Eye, Pencil, Trash2, User, Store, Armchair, Bike, ShoppingBag } from "lucide-react";
 import { OrderModal } from "./OrderModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
+import { useSearchParams } from "react-router-dom";
 
 const pedidos = [
     {
@@ -107,6 +108,13 @@ export const Orders = () => {
     const [search, setSearch] = useState("");
     const [filterEstado, setFilterEstado] = useState("");
     const [page, setPage] = useState(1);
+    const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        if (searchParams.get("action") === "new") {
+            setModalOpen(true);
+        }
+    }, []);
 
     const estados = ["Pendiente", "Preparacion", "Listo", "Servido", "Entregado", "Cancelado"];
 
