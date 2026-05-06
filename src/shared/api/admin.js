@@ -22,3 +22,100 @@ export const updateOrder = async (id, data) => {
 export const deleteOrder = async (id) => {
     return await axiosAdmin.delete(`/orders/${id}`);
 };
+// ================= CATEGORIES =================
+export const getCategories = async (params) => {
+    return await axiosAdmin.get("/categories", { params });
+};
+export const createCategory = async (data) => {
+    return await axiosAdmin.post("/categories", data);
+};
+export const updateCategory = async (id, data) => {
+    return await axiosAdmin.put(`/categories/${id}`, data);
+};
+export const deleteCategory = async (id) => {
+    return await axiosAdmin.delete(`/categories/${id}`);
+};
+// ================= USERS =================
+export const getUsers = async (params) => {
+    return await axiosAdmin.get("/users", { params });
+};
+export const createUser = async (data) => {
+    return await axiosAdmin.post("/users/register", data);
+};
+export const updateUser = async (id, data) => {
+    return await axiosAdmin.put(`/users/${id}`, data);
+};
+export const deleteUser = async (id) => {
+    return await axiosAdmin.delete(`/users/${id}`);
+};
+export const activateUser = async (id) => {
+    return await axiosAdmin.patch(`/users/${id}/activate`);
+};
+// ================= RESTAURANTS =================
+export const getRestaurants = async (params) => {
+    return await axiosAdmin.get("/restaurants", { params });
+};
+export const createRestaurant = async (data) => {
+    return await axiosAdmin.post("/restaurants", data);
+};
+export const updateRestaurant = async (id, data) => {
+    return await axiosAdmin.put(`/restaurants/${id}`, data);
+};
+export const deleteRestaurant = async (id) => {
+    return await axiosAdmin.delete(`/restaurants/${id}`);
+};
+export const activateCategory = async (id) => {
+    return await axiosAdmin.patch(`/categories/${id}/activate`);
+};
+// ================= TABLES =================
+export const getMesas = async (restaurantId) => {
+    return await axiosAdmin.get(`/tables/${restaurantId}`);
+};
+export const addMesa = async (restaurantId, data) => {
+    return await axiosAdmin.post(`/tables/${restaurantId}`, data);
+};
+export const updateMesa = async (restId, mesaId, data) => {
+    return await axiosAdmin.put(`/tables/${restId}/${mesaId}`, data);
+};
+export const deleteMesa = async (restId, mesaId) => {
+    return await axiosAdmin.delete(`/tables/${restId}/${mesaId}`);
+};
+// ================= GASTRONOMIC EVENTS =================
+export const getEventos = async (restaurantId) => {
+    return await axiosAdmin.get(`/gastronomicEvents/${restaurantId}`);
+};
+export const addEvento = async (restaurantId, data) => {
+    return await axiosAdmin.post(`/gastronomicEvents/${restaurantId}`, data);
+};
+export const updateEvento = async (restId, eventoId, data) => {
+    return await axiosAdmin.put(`/gastronomicEvents/${restId}/${eventoId}`, data);
+};
+export const deleteEvento = async (restId, eventoId) => {
+    return await axiosAdmin.delete(`/gastronomicEvents/${restId}/${eventoId}`);
+};
+// ================= PRODUCTS =================
+export const getProducts = async (params) => {
+    return await axiosAdmin.get("/products", { params });
+};
+export const createProduct = async (data) => {
+    return await axiosAdmin.post("/products", data);
+};
+export const updateProduct = async (id, data) => {
+    return await axiosAdmin.put(`/products/${id}`, data);
+};
+export const deleteProduct = async (id) => {
+    return await axiosAdmin.delete(`/products/${id}`);
+};
+// ================= RECIPES =================
+export const getRecipes = async (productId) => {
+    return await axiosAdmin.get(`/recipes/${productId}`);
+};
+export const addRecipeItem = async (productId, data) => {
+    return await axiosAdmin.post(`/recipes/${productId}`, data);
+};
+export const updateRecipeItem = async (productId, recipeId, data) => {
+    return await axiosAdmin.put(`/recipes/${productId}/${recipeId}`, data);
+};
+export const deleteRecipeItem = async (productId, recipeId) => {
+    return await axiosAdmin.delete(`/recipes/${productId}/${recipeId}`);
+};
