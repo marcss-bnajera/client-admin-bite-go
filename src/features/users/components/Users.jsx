@@ -1,16 +1,9 @@
 import { useState } from "react";
-import { Plus, Search, Pencil, UserX, User, Shield, Filter } from "lucide-react";
+import { Plus, Search, Pencil, UserX, User, Filter } from "lucide-react";
 import { UserModal } from "./UserModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
-
-const usuarios = [
-    { _id: "u_001", nombre: "Carlos Admin", email: "carlos@biteandgo.com", telefono: "5555-0001", dpi: "1234567890101", direccion: "Zona 1, Guatemala", rol: "Admin_Plataforma", id_restaurante: null, activo: true },
-    { _id: "u_002", nombre: "María Resto", email: "maria@biteandgo.com", telefono: "5555-0002", dpi: "1234567890102", direccion: "Zona 10, Guatemala", rol: "Admin_Restaurante", id_restaurante: { _id: "rest_001", nombre: "Bite Central" }, activo: true },
-    { _id: "u_003", nombre: "Pedro Mesero", email: "pedro@biteandgo.com", telefono: "5555-0003", dpi: "1234567890103", direccion: "Zona 5, Guatemala", rol: "Mesero", id_restaurante: { _id: "rest_002", nombre: "Bite Norte" }, activo: true },
-    { _id: "u_004", nombre: "Luis Reparto", email: "luis@biteandgo.com", telefono: "5555-0004", dpi: "1234567890104", direccion: "Zona 12, Guatemala", rol: "Repartidor", id_restaurante: { _id: "rest_003", nombre: "Bite Sur" }, activo: false },
-    { _id: "u_005", nombre: "Ana Cocina", email: "ana@biteandgo.com", telefono: "5555-0005", dpi: "1234567890105", direccion: "Zona 7, Guatemala", rol: "Cocinero", id_restaurante: { _id: "rest_001", nombre: "Bite Central" }, activo: true },
-    { _id: "u_006", nombre: "Juan Cliente", email: "juan@gmail.com", telefono: "5555-0006", dpi: "1234567890106", direccion: "Zona 15, Guatemala", rol: "Cliente", id_restaurante: null, activo: true },
-];
+import { useUsers } from "../hooks/useUsers";
+import { useUsersStore } from "../store/usersStore";
 
 const rolColor = {
     Admin_Plataforma: "bg-[#E6A5A5] text-red-900",
@@ -26,22 +19,23 @@ const roles = ["Admin_Plataforma", "Admin_Restaurante", "Mesero", "Repartidor", 
 const LIMIT = 10;
 
 export const Users = () => {
+    const { users, loading, getUsers } = useUsers();
+    const { deleteUser, activateUser } = useUsersStore();
+
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [search, setSearch] = useState("");
     const [filterRol, setFilterRol] = useState("");
-    const [filterActivo, setFilterActivo] = useState("activo"); // "activo" | "inactivo" | ""
+    const [filterActivo, setFilterActivo] = useState("activo");
     const [page, setPage] = useState(1);
 
-    const filtered = usuarios.filter((u) => {
+    const filtered = (users ?? []).filter((u) => {
+        if (!u) return false;
         const matchSearch =
-            u.nombre.toLowerCase().includes(search.toLowerCase()) ||
-            u.email.toLowerCase().includes(search.toLowerCase());
+            u.nombre?.toLowerCase().includes(search.toLowerCase()) ||
+            u.email?.toLowerCase().includes(search.toLowerCase());
         const matchRol = filterRol ? u.rol === filterRol : true;
-        const matchActivo =
-            filterActivo === "activo" ? u.activo :
-                filterActivo === "inactivo" ? !u.activo : true;
-        return matchSearch && matchRol && matchActivo;
+        return matchSearch && matchRol; // ← sin matchActivo
     });
 
     const totalPages = Math.ceil(filtered.length / LIMIT);
@@ -52,7 +46,27 @@ export const Users = () => {
 
     const handleSearchChange = (e) => { setSearch(e.target.value); setPage(1); };
     const handleRolChange = (e) => { setFilterRol(e.target.value); setPage(1); };
-    const handleActivoChange = (e) => { setFilterActivo(e.target.value); setPage(1); };
+
+    const handleActivoChange = (e) => {
+        const val = e.target.value;
+        setFilterActivo(val);
+        setPage(1);
+        if (val === "activo") getUsers({ activo: true });
+        else if (val === "inactivo") getUsers({ activo: false });
+        else getUsers();
+    };
+
+    const handleToggleActivo = async (u) => {
+        if (u.activo) {
+            await deleteUser(u._id);
+        } else {
+            await activateUser(u._id);
+        }
+        // Refresca con el filtro actual
+        if (filterActivo === "activo") getUsers({ activo: true });
+        else if (filterActivo === "inactivo") getUsers({ activo: false });
+        else getUsers();
+    };
 
     return (
         <div className="space-y-6">
@@ -122,9 +136,15 @@ export const Users = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {paginated.length === 0 ? (
+                        {loading ? (
                             <tr>
-                                <td colSpan={7} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">
+                                <td colSpan={9} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">
+                                    Cargando usuarios...
+                                </td>
+                            </tr>
+                        ) : paginated.length === 0 ? (
+                            <tr>
+                                <td colSpan={9} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">
                                     No se encontraron usuarios
                                 </td>
                             </tr>
@@ -168,11 +188,11 @@ export const Users = () => {
                                             <Pencil size={15} />
                                         </button>
                                         <button
+                                            onClick={() => handleToggleActivo(u)}
                                             className="p-2 rounded-lg hover:bg-red-50 text-[#C0392B] transition-colors"
-                                            title={u.activo ? "Desactivar usuario" : "Usuario ya inactivo"}
-                                            disabled={!u.activo}
+                                            title={u.activo ? "Desactivar usuario" : "Activar usuario"}
                                         >
-                                            <UserX size={15} className={!u.activo ? "opacity-30" : ""} />
+                                            <UserX size={15} />
                                         </button>
                                     </div>
                                 </td>
@@ -184,13 +204,18 @@ export const Users = () => {
 
             <Pagination
                 currentPage={page}
-                totalPages={totalPages}
+                totalPages={totalPages || 1}
                 total={filtered.length}
                 itemsShown={paginated.length}
                 onPageChange={setPage}
             />
 
-            <UserModal isOpen={modalOpen} onClose={() => setModalOpen(false)} user={selectedUser} />
+            <UserModal
+                isOpen={modalOpen}
+                onClose={() => { setModalOpen(false); setSelectedUser(null); }}
+                user={selectedUser}
+                onSaved={getUsers}
+            />
         </div>
     );
 };

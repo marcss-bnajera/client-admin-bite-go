@@ -1,11 +1,9 @@
 import { X, Users, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
-
-const restaurantes = [
-    { _id: "rest_001", nombre: "Bite Central" },
-    { _id: "rest_002", nombre: "Bite Norte" },
-    { _id: "rest_003", nombre: "Bite Sur" },
-];
+import { useSaveUser } from "../hooks/useSaveUser";
+import { useUsersStore } from "../store/usersStore";
+import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
+import { showSuccess, showError } from "../../../shared/utils/toast";
 
 const roles = ["Admin_Plataforma", "Admin_Restaurante", "Mesero", "Repartidor", "Cocinero", "Cliente"];
 const rolesConRestaurante = ["Admin_Restaurante", "Mesero", "Repartidor", "Cocinero"];
@@ -22,8 +20,13 @@ const initialForm = {
     id_restaurante: "",
 };
 
-export const UserModal = ({ isOpen, onClose, user = null }) => {
+export const UserModal = ({ isOpen, onClose, user = null, onSaved }) => {
     const isEditing = !!user;
+    const { saveUser } = useSaveUser();
+    const loading = useUsersStore((state) => state.loading);
+
+    const restaurantes = useRestaurantsStore((state) => state.restaurants);
+    const getRestaurants = useRestaurantsStore((state) => state.getRestaurants);
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -31,7 +34,11 @@ export const UserModal = ({ isOpen, onClose, user = null }) => {
     const [form, setForm] = useState(initialForm);
     const [errors, setErrors] = useState({});
 
-    // Sincronizar form cuando cambia el user recibido
+    useEffect(() => {
+        if (isOpen) getRestaurants();
+    }, [isOpen]);
+
+
     useEffect(() => {
         if (isOpen) {
             setChangePassword(false);
@@ -47,7 +54,6 @@ export const UserModal = ({ isOpen, onClose, user = null }) => {
                         direccion: user.direccion || "",
                         dpi: user.dpi || "",
                         rol: user.rol || "Cliente",
-                        // Normalizar: si viene objeto {_id, nombre}, extraer solo _id
                         id_restaurante: user.id_restaurante?._id || user.id_restaurante || "",
                     }
                     : initialForm
@@ -88,7 +94,7 @@ export const UserModal = ({ isOpen, onClose, user = null }) => {
         return newErrors;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const validationErrors = validate();
         if (Object.keys(validationErrors).length > 0) {
@@ -96,24 +102,20 @@ export const UserModal = ({ isOpen, onClose, user = null }) => {
             return;
         }
 
-        const payload = {
-            nombre: form.nombre,
-            email: form.email,
-            telefono: form.telefono,
-            direccion: form.direccion,
-            dpi: form.dpi,
-            rol: form.rol,
-            id_restaurante: requiereRestaurante ? form.id_restaurante : null,
-        };
-
-        if (!isEditing) {
-            payload.password = form.password;
-        } else if (changePassword && form.password) {
-            payload.password = form.password;
+        const data = { ...form };
+        if (isEditing && !changePassword) {
+            delete data.password;
+            delete data.confirmPassword;
         }
 
-        console.log(isEditing ? "Payload → PUT /users/:id:" : "Payload → POST /users:", payload);
-        onClose();
+        try {
+            await saveUser(data, user?._id ?? null);
+            showSuccess(isEditing ? "Usuario actualizado correctamente" : "Usuario creado correctamente");
+            onSaved?.();
+            onClose();
+        } catch {
+            showError("Error al guardar el usuario");
+        }
     };
 
     if (!isOpen) return null;
@@ -192,7 +194,7 @@ export const UserModal = ({ isOpen, onClose, user = null }) => {
                         {errors.email && <p className="text-[10px] text-red-500 mt-1">{errors.email}</p>}
                     </div>
 
-                    {/* Toggle cambiar contraseña en edición */}
+                    {/* Toggle cambiar contraseña */}
                     {isEditing && (
                         <div className="flex items-center gap-2">
                             <input
@@ -344,9 +346,10 @@ export const UserModal = ({ isOpen, onClose, user = null }) => {
                         </button>
                         <button
                             type="submit"
-                            className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors"
+                            disabled={loading}
+                            className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors disabled:opacity-60"
                         >
-                            {isEditing ? "Guardar Cambios" : "Registrar Usuario"}
+                            {loading ? "Guardando..." : isEditing ? "Guardar Cambios" : "Registrar Usuario"}
                         </button>
                     </div>
                 </form>
