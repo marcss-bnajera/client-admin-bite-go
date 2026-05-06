@@ -16,6 +16,10 @@ export const Navbar = () => {
                         alt="Bite & Go Logo"
                         className="h-9 md:h-10 w-auto object-contain transition-transform hover:scale-105 object-left"
                     />
+                    <div className="h-6 w-[2px] bg-[#E8D8C3] hidden md:block"></div>
+                    <h1 className="font-extrabold text-[#2B2B2B] text-lg md:text-xl tracking-tight hidden md:block">
+                        ADMIN <span className="text-[#E67E22]">PANEL</span>
+                    </h1>
                 </div>
 
                 {/* Botones + Avatar */}
