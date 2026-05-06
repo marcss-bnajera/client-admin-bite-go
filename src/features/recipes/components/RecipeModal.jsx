@@ -1,40 +1,40 @@
 import { X, FlaskConical } from "lucide-react";
-import { useState } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { useSaveRecipeItem } from "../hooks/useSaveRecipeItem";
+import { useProductsStore } from "../../products/store/productsStore";
+import { showSuccess, showError } from "../../../shared/utils/toast";
 
-const productos = [
-    { _id: "prod_001", nombre: "Burger Clásica" },
-    { _id: "prod_002", nombre: "Pasta Alfredo" },
-    { _id: "prod_003", nombre: "Alitas BBQ" },
-];
-
-export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = null }) => {
+export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = null, onSaved }) => {
     const isEditing = !!ingredient;
+    const { saveRecipeItem } = useSaveRecipeItem();
+    const loading = useProductsStore((state) => state.loading);
 
-    const [form, setForm] = useState({
-        nombre_insumo: ingredient?.nombre_insumo || "",
-        cantidad_requerida: ingredient?.cantidad_requerida || "",
-    });
+    const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
-    const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (isEditing) {
-            // PUT /recipes/:productId/:recipeId — preserva _id en el $set
-            console.log("PUT /recipes/:productId/:recipeId →", {
-                nombre_insumo: form.nombre_insumo,
-                cantidad_requerida: Number(form.cantidad_requerida),
-            });
-        } else {
-            // POST /recipes/:id — $push a receta, body = recetaSchema fields
-            console.log("POST /recipes/:id →", {
-                nombre_insumo: form.nombre_insumo,
-                cantidad_requerida: Number(form.cantidad_requerida),
-            });
+    useEffect(() => {
+        if (isOpen) {
+            if (ingredient) {
+                reset({
+                    nombre_insumo: ingredient.nombre_insumo || "",
+                    cantidad_requerida: ingredient.cantidad_requerida || "",
+                });
+            } else {
+                reset({ nombre_insumo: "", cantidad_requerida: "" });
+            }
         }
-        onClose();
+    }, [isOpen, ingredient, reset]);
+
+    const onSubmit = async (data) => {
+        try {
+            await saveRecipeItem(data, productId, ingredient?._id ?? null);
+            showSuccess(isEditing ? "Ingrediente actualizado correctamente" : "Ingrediente agregado correctamente");
+            onSaved?.();
+            reset();
+            onClose();
+        } catch (error) {
+            showError("Error al guardar el ingrediente");
+        }
     };
 
     if (!isOpen) return null;
@@ -51,91 +51,49 @@ export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = nu
                             {isEditing ? "Editar Ingrediente" : "Agregar Ingrediente"}
                         </h3>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
-                    >
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
                         <X size={18} />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-                    {/* Se muestra solo si no viene productId desde la vista (flujo alternativo) */}
-                    {!productId && (
-                        <div>
-                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                Producto *
-                            </label>
-                            <select
-                                name="id_producto"
-                                value={form.id_producto}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
-                            >
-                                <option value="">Seleccionar producto...</option>
-                                {productos.map((p) => (
-                                    <option key={p._id} value={p._id}>{p.nombre}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-                    {/* nombre_insumo: required, trim en recetaSchema */}
+                <div className="px-6 py-5 space-y-4">
                     <div>
-                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                            Nombre del Insumo *
-                        </label>
+                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Nombre del Insumo *</label>
                         <input
-                            name="nombre_insumo"
-                            value={form.nombre_insumo}
-                            onChange={handleChange}
-                            required
                             placeholder="Ej: Carne de res, Lechuga..."
                             className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                            {...register("nombre_insumo", { required: "El nombre del insumo es obligatorio" })}
                         />
-                        <p className="text-[10px] text-[#6B6B6B] mt-1">
-                            Debe coincidir exactamente con el nombre del insumo en Inventario
-                        </p>
+                        {errors.nombre_insumo && <span className="text-red-500 text-xs mt-1">{errors.nombre_insumo.message}</span>}
+                        <p className="text-[10px] text-[#6B6B6B] mt-1">Debe coincidir exactamente con el nombre del insumo en Inventario</p>
                     </div>
 
-                    {/* cantidad_requerida: required, min 0 en recetaSchema */}
                     <div>
-                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                            Cantidad Requerida *
-                        </label>
+                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Cantidad Requerida *</label>
                         <input
-                            name="cantidad_requerida"
-                            value={form.cantidad_requerida}
-                            onChange={handleChange}
-                            required
                             type="number"
                             min="0"
                             step="0.1"
                             placeholder="Ej: 2"
                             className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                            {...register("cantidad_requerida", {
+                                required: "La cantidad es obligatoria",
+                                min: { value: 0, message: "Debe ser mayor o igual a 0" }
+                            })}
                         />
-                        <p className="text-[10px] text-[#6B6B6B] mt-1">
-                            Esta cantidad se descontará del inventario al procesar un pedido
-                        </p>
+                        {errors.cantidad_requerida && <span className="text-red-500 text-xs mt-1">{errors.cantidad_requerida.message}</span>}
+                        <p className="text-[10px] text-[#6B6B6B] mt-1">Esta cantidad se descontará del inventario al procesar un pedido</p>
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2 border-t border-[#E8D8C3]">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 rounded-xl border border-[#E8D8C3] text-sm font-semibold text-[#6B6B6B] hover:bg-[#F5EFE6] transition-colors"
-                        >
+                        <button type="button" onClick={() => { reset(); onClose(); }} className="px-4 py-2 rounded-xl border border-[#E8D8C3] text-sm font-semibold text-[#6B6B6B] hover:bg-[#F5EFE6] transition-colors">
                             Cancelar
                         </button>
-                        <button
-                            type="submit"
-                            className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors"
-                        >
-                            {isEditing ? "Guardar Cambios" : "Agregar Ingrediente"}
+                        <button type="button" onClick={handleSubmit(onSubmit)} disabled={loading} className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors disabled:opacity-60">
+                            {loading ? "Guardando..." : isEditing ? "Guardar Cambios" : "Agregar Ingrediente"}
                         </button>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     );
