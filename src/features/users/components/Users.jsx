@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Plus, Search, Pencil, UserX, User, Filter } from "lucide-react";
+import { Plus, Search, Pencil, Eye, EyeOff, Filter, UserCircle2 } from "lucide-react";
 import { UserModal } from "./UserModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
 import { useUsers } from "../hooks/useUsers";
 import { useUsersStore } from "../store/usersStore";
 
 const rolColor = {
-    Admin_Plataforma: "bg-[#E6A5A5] text-red-900",
+    SuperAdmin: "bg-[#E6A5A5] text-red-900",
     Admin_Restaurante: "bg-[#A9C7E8] text-blue-900",
     Mesero: "bg-[#EAD7A4] text-yellow-800",
     Repartidor: "bg-[#EAD7A4] text-yellow-900",
@@ -14,7 +14,7 @@ const rolColor = {
     Cliente: "bg-[#D6D6D6] text-gray-700",
 };
 
-const roles = ["Admin_Plataforma", "Admin_Restaurante", "Mesero", "Repartidor", "Cocinero", "Cliente"];
+const roles = ["SuperAdmin", "Admin_Restaurante", "Mesero", "Repartidor", "Cocinero", "Cliente"];
 
 const LIMIT = 10;
 
@@ -35,7 +35,7 @@ export const Users = () => {
             u.nombre?.toLowerCase().includes(search.toLowerCase()) ||
             u.email?.toLowerCase().includes(search.toLowerCase());
         const matchRol = filterRol ? u.rol === filterRol : true;
-        return matchSearch && matchRol; // ← sin matchActivo
+        return matchSearch && matchRol;
     });
 
     const totalPages = Math.ceil(filtered.length / LIMIT);
@@ -43,7 +43,6 @@ export const Users = () => {
 
     const handleNew = () => { setSelectedUser(null); setModalOpen(true); };
     const handleEdit = (user) => { setSelectedUser(user); setModalOpen(true); };
-
     const handleSearchChange = (e) => { setSearch(e.target.value); setPage(1); };
     const handleRolChange = (e) => { setFilterRol(e.target.value); setPage(1); };
 
@@ -57,20 +56,19 @@ export const Users = () => {
     };
 
     const handleToggleActivo = async (u) => {
-        if (u.activo) {
-            await deleteUser(u._id);
-        } else {
-            await activateUser(u._id);
-        }
-        // Refresca con el filtro actual
+        if (u.activo) await deleteUser(u._id);
+        else await activateUser(u._id);
         if (filterActivo === "activo") getUsers({ activo: true });
         else if (filterActivo === "inactivo") getUsers({ activo: false });
         else getUsers();
     };
 
+    const selectClass = "outline-none text-sm bg-transparent text-[#6B6B6B]";
+
     return (
         <div className="space-y-6">
-            {/* Header */}
+
+            {/* HEADER */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 className="text-xl md:text-2xl font-extrabold text-[#2B2B2B]">Usuarios</h2>
@@ -84,10 +82,10 @@ export const Users = () => {
                 </button>
             </div>
 
-            {/* Filtros */}
-            <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2 flex-1">
-                    <Search size={16} className="text-[#6B6B6B] shrink-0" />
+            {/* FILTROS */}
+            <div className="flex flex-wrap gap-2 items-center pb-4 border-b border-[#E8D8C3]">
+                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9 flex-1 min-w-[160px] max-w-xs">
+                    <Search size={14} className="text-[#6B6B6B] shrink-0" />
                     <input
                         value={search}
                         onChange={handleSearchChange}
@@ -95,23 +93,15 @@ export const Users = () => {
                         placeholder="Buscar por nombre o correo..."
                     />
                 </div>
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2">
-                    <Filter size={16} className="text-[#6B6B6B] shrink-0" />
-                    <select
-                        value={filterRol}
-                        onChange={handleRolChange}
-                        className="outline-none text-sm bg-transparent text-[#6B6B6B]"
-                    >
+                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9">
+                    <Filter size={14} className="text-[#6B6B6B] shrink-0" />
+                    <select value={filterRol} onChange={handleRolChange} className={selectClass}>
                         <option value="">Todos los roles</option>
                         {roles.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                 </div>
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2">
-                    <select
-                        value={filterActivo}
-                        onChange={handleActivoChange}
-                        className="outline-none text-sm bg-transparent text-[#6B6B6B]"
-                    >
+                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9">
+                    <select value={filterActivo} onChange={handleActivoChange} className={selectClass}>
                         <option value="">Todos</option>
                         <option value="activo">Activos</option>
                         <option value="inactivo">Inactivos</option>
@@ -119,7 +109,7 @@ export const Users = () => {
                 </div>
             </div>
 
-            {/* Tabla */}
+            {/* TABLA */}
             <div className="bg-white rounded-2xl shadow-sm border border-[#E8D8C3] overflow-x-auto">
                 <table className="w-full text-sm min-w-[700px]">
                     <thead className="bg-[#3A2E2A] text-white">
@@ -137,17 +127,9 @@ export const Users = () => {
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr>
-                                <td colSpan={9} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">
-                                    Cargando usuarios...
-                                </td>
-                            </tr>
+                            <tr><td colSpan={9} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">Cargando usuarios...</td></tr>
                         ) : paginated.length === 0 ? (
-                            <tr>
-                                <td colSpan={9} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">
-                                    No se encontraron usuarios
-                                </td>
-                            </tr>
+                            <tr><td colSpan={9} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">No se encontraron usuarios</td></tr>
                         ) : paginated.map((u, index) => (
                             <tr
                                 key={u._id}
@@ -156,7 +138,7 @@ export const Users = () => {
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-[#3A2E2A] flex items-center justify-center shrink-0">
-                                            <User size={13} className="text-white" />
+                                            <UserCircle2 size={16} className="text-white" />
                                         </div>
                                         <span className="font-semibold text-[#2B2B2B]">{u.nombre}</span>
                                     </div>
@@ -166,7 +148,7 @@ export const Users = () => {
                                 <td className="px-6 py-4 text-[#6B6B6B] hidden xl:table-cell">{u.direccion || "—"}</td>
                                 <td className="px-6 py-4 text-[#6B6B6B] hidden md:table-cell">{u.dpi || "—"}</td>
                                 <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${rolColor[u.rol]}`}>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${rolColor[u.rol] ?? "bg-[#D6D6D6] text-gray-700"}`}>
                                         {u.rol}
                                     </span>
                                 </td>
@@ -189,10 +171,14 @@ export const Users = () => {
                                         </button>
                                         <button
                                             onClick={() => handleToggleActivo(u)}
-                                            className="p-2 rounded-lg hover:bg-red-50 text-[#C0392B] transition-colors"
+                                            className={`p-2 rounded-lg transition-colors
+                                                ${u.activo
+                                                    ? "hover:bg-red-50 text-[#C0392B]"
+                                                    : "hover:bg-[#E1F5EE] text-[#0F6E56]"
+                                                }`}
                                             title={u.activo ? "Desactivar usuario" : "Activar usuario"}
                                         >
-                                            <UserX size={15} />
+                                            {u.activo ? <EyeOff size={15} /> : <Eye size={15} />}
                                         </button>
                                     </div>
                                 </td>

@@ -5,7 +5,7 @@ import { useUsersStore } from "../store/usersStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { showSuccess, showError } from "../../../shared/utils/toast";
 
-const roles = ["Admin_Plataforma", "Admin_Restaurante", "Mesero", "Repartidor", "Cocinero", "Cliente"];
+const roles = ["SuperAdmin", "Admin_Restaurante", "Mesero", "Repartidor", "Cocinero", "Cliente"];
 const rolesConRestaurante = ["Admin_Restaurante", "Mesero", "Repartidor", "Cocinero"];
 
 const initialForm = {
