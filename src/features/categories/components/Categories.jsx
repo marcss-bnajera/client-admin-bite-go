@@ -2,24 +2,15 @@ import { useState } from "react";
 import { Plus, Search, Pencil, TagIcon, Store, Filter, Tags } from "lucide-react";
 import { CategoryModal } from "./CategoryModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
-
-const categorias = [
-    { _id: "cat_001", nombre: "Combos Especiales", descripcion: "Combos del día con bebida incluida", id_restaurante: { _id: "rest_001", nombre: "Bite Central" }, activo: true },
-    { _id: "cat_002", nombre: "Menú Ejecutivo", descripcion: "Platos rápidos para el almuerzo de trabajo", id_restaurante: { _id: "rest_002", nombre: "Bite Norte" }, activo: true },
-    { _id: "cat_003", nombre: "Desayunos", descripcion: "Opciones de desayuno hasta las 11am", id_restaurante: { _id: "rest_003", nombre: "Bite Sur" }, activo: true },
-    { _id: "cat_004", nombre: "Para Compartir", descripcion: "Porciones grandes para grupos", id_restaurante: { _id: "rest_001", nombre: "Bite Central" }, activo: false },
-    { _id: "cat_005", nombre: "Vegano & Saludable", descripcion: "Opciones plant-based y bajas en calorías", id_restaurante: { _id: "rest_002", nombre: "Bite Norte" }, activo: true },
-];
-
-const restaurantes = [
-    { _id: "rest_001", nombre: "Bite Central" },
-    { _id: "rest_002", nombre: "Bite Norte" },
-    { _id: "rest_003", nombre: "Bite Sur" },
-];
+import { useCategories } from "../hooks/useCategories";
+import { useCategoriesStore } from "../store/categoriesStore";
 
 const LIMIT = 10;
 
 export const Categories = () => {
+    const { categories, loading, getCategories } = useCategories();
+    const { deleteCategory, activateCategory } = useCategoriesStore();
+
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [search, setSearch] = useState("");
@@ -27,11 +18,11 @@ export const Categories = () => {
     const [filterActivo, setFilterActivo] = useState("activo");
     const [page, setPage] = useState(1);
 
-    const filtered = categorias.filter((c) => {
+    const filtered = (categories ?? []).filter((c) => {
         const matchSearch =
             c.nombre.toLowerCase().includes(search.toLowerCase()) ||
-            c.id_restaurante.nombre.toLowerCase().includes(search.toLowerCase());
-        const matchRestaurante = filterRestaurante ? c.id_restaurante._id === filterRestaurante : true;
+            c.id_restaurante?.nombre?.toLowerCase().includes(search.toLowerCase());
+        const matchRestaurante = filterRestaurante ? c.id_restaurante?._id === filterRestaurante : true;
         const matchActivo =
             filterActivo === "activo" ? c.activo :
                 filterActivo === "inactivo" ? !c.activo : true;
@@ -47,6 +38,18 @@ export const Categories = () => {
     const handleSearchChange = (e) => { setSearch(e.target.value); setPage(1); };
     const handleRestauranteChange = (e) => { setFilterRestaurante(e.target.value); setPage(1); };
     const handleActivoChange = (e) => { setFilterActivo(e.target.value); setPage(1); };
+
+    const restaurantes = [...new Map(
+        categories.map((c) => [c.id_restaurante?._id, c.id_restaurante])
+    ).values()].filter(Boolean);
+
+    const handleToggleActivo = async (cat) => {
+        if (cat.activo) {
+            await deleteCategory(cat._id);
+        } else {
+            await activateCategory(cat._id);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -110,7 +113,13 @@ export const Categories = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {paginated.length === 0 ? (
+                        {loading ? (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-10 text-center text-[#6B6B6B]">
+                                    Cargando categorías...
+                                </td>
+                            </tr>
+                        ) : paginated.length === 0 ? (
                             <tr>
                                 <td colSpan={5} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">
                                     No se encontraron categorías
@@ -135,7 +144,7 @@ export const Categories = () => {
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2 text-[#6B6B6B]">
                                         <Store size={13} className="shrink-0" />
-                                        {cat.id_restaurante.nombre}
+                                        {cat.id_restaurante?.nombre ?? "—"}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
@@ -153,11 +162,11 @@ export const Categories = () => {
                                             <Pencil size={15} />
                                         </button>
                                         <button
+                                            onClick={() => handleToggleActivo(cat)}
                                             className="p-2 rounded-lg hover:bg-red-50 text-[#C0392B] transition-colors"
-                                            title={cat.activo ? "Desactivar categoría" : "Categoría ya inactiva"}
-                                            disabled={!cat.activo}
+                                            title={cat.activo ? "Desactivar categoría" : "Activar categoría"}
                                         >
-                                            <TagIcon size={15} className={!cat.activo ? "opacity-30" : ""} />
+                                            <TagIcon size={15} className={!cat.activo ? "text-green-600" : ""} />
                                         </button>
                                     </div>
                                 </td>
@@ -169,13 +178,18 @@ export const Categories = () => {
 
             <Pagination
                 currentPage={page}
-                totalPages={totalPages}
+                totalPages={totalPages || 1}
                 total={filtered.length}
                 itemsShown={paginated.length}
                 onPageChange={setPage}
             />
 
-            <CategoryModal isOpen={modalOpen} onClose={() => setModalOpen(false)} category={selectedCategory} />
+            <CategoryModal
+                isOpen={modalOpen}
+                onClose={() => { setModalOpen(false); setSelectedCategory(null); }}
+                category={selectedCategory}
+                onSaved={() => getCategories()}
+            />
         </div>
     );
 };
