@@ -13,11 +13,9 @@ export const Navbar = () => {
                 <div className="flex items-center gap-3 md:gap-4 -ml-2">
                     <img
                         src={imgLogo}
-                        alt="Bite & Go Logo" />
-                    <div className="h-6 w-[2px] bg-[#E8D8C3] hidden md:block"></div>
-                    <h1 className="font-extrabold text-[#2B2B2B] text-lg md:text-xl tracking-tight hidden md:block">
-                        ADMIN <span className="text-[#E67E22]">PANEL</span>
-                    </h1>
+                        alt="Bite & Go Logo"
+                        className="h-9 md:h-10 w-auto object-contain transition-transform hover:scale-105 object-left"
+                    />
                 </div>
 
                 {/* Botones + Avatar */}
@@ -34,8 +32,8 @@ export const Navbar = () => {
                     >
                         + Reservacion
                     </button>
+                    <AvatarUser />
                 </div>
-                <AvatarUser />
             </div>
         </nav>
     );
