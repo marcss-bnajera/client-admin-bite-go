@@ -1,66 +1,101 @@
-import { X, UtensilsCrossed } from "lucide-react";
-import { useState } from "react";
+import { X, UtensilsCrossed, ImagePlus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { useSaveProduct } from "../hooks/useSaveProduct";
+import { useProductsStore } from "../store/productsStore";
+import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
+import { useCategoriesStore } from "../../categories/store/categoriesStore";
+import { showSuccess, showError } from "../../../shared/utils/toast";
 
-const restaurantes = [
-    { _id: "rest_001", nombre: "Bite Central" },
-    { _id: "rest_002", nombre: "Bite Norte" },
-    { _id: "rest_003", nombre: "Bite Sur" },
-];
-
-// Enum del productSchema
-const categorias = ["Entradas", "Platos", "Bebidas", "Postres", "Otros"];
-
-export const ProductModal = ({ isOpen, onClose, product = null }) => {
+export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
     const isEditing = !!product;
+    const { saveProduct } = useSaveProduct();
+    const loading = useProductsStore((state) => state.loading);
+    const restaurants = useRestaurantsStore((state) => state.restaurants);
+    const getRestaurants = useRestaurantsStore((state) => state.getRestaurants);
+    const categories = useCategoriesStore((state) => state.categories);
+    const getCategories = useCategoriesStore((state) => state.getCategories);
 
-    const [form, setForm] = useState({
-        id_restaurante: product?.id_restaurante?._id || product?.id_restaurante || "",
-        nombre: product?.nombre || "",
-        descripcion: product?.descripcion || "",
-        categoria: product?.categoria || "Platos",
-        precio: product?.precio || "",
-        disponibilidad: product?.disponibilidad ?? true,
-        // activo: solo editable en modo edición — controller lo descarta en updateProduct
-        // pero el modal lo manda para el PUT correcto cuando sea necesario desactivar
-        activo: product?.activo ?? true,
-        // foto_url: array en schema — se gestiona aparte (upload), solo se muestra info aquí
-    });
+    const [filteredCategories, setFilteredCategories] = useState([]);
+    const [preview, setPreview] = useState(null);
+    const [existingPhoto, setExistingPhoto] = useState(null); // foto ya guardada
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setForm({ ...form, [name]: value });
-    };
+    const {
+        register,
+        handleSubmit,
+        reset,
+        watch,
+        setValue,
+        formState: { errors },
+    } = useForm();
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+    const selectedRestaurant = watch("id_restaurante");
+    const watchedFoto = watch("foto");
 
-        if (isEditing) {
-            // PUT /products/:id — controller descarta receta, activo e id_restaurante
-            // Solo se envían los campos que updateProduct acepta en ...data
-            console.log("Payload → PUT /products/:id", {
-                nombre: form.nombre,
-                descripcion: form.descripcion,
-                categoria: form.categoria,
-                precio: Number(form.precio),
-                disponibilidad: form.disponibilidad === "true" || form.disponibilidad === true,
-            });
-        } else {
-            // POST /products — createProduct acepta req.body completo
-            console.log("Payload → POST /products", {
-                id_restaurante: form.id_restaurante,
-                nombre: form.nombre,
-                descripcion: form.descripcion,
-                categoria: form.categoria,
-                precio: Number(form.precio),
-                disponibilidad: form.disponibilidad === "true" || form.disponibilidad === true,
-                activo: true,
-                foto_url: [],
-                receta: [],
-                variaciones: [],
-            });
+    useEffect(() => {
+        if (isOpen) {
+            getRestaurants();
+            getCategories({ activo: true, limit: 200 });
         }
+    }, [isOpen]);
 
-        onClose();
+    useEffect(() => {
+        if (!selectedRestaurant) { setFilteredCategories([]); return; }
+        const cats = categories.filter(
+            (c) => (c.id_restaurante?._id || c.id_restaurante) === selectedRestaurant && c.activo
+        );
+        setFilteredCategories(cats);
+        if (!isEditing) setValue("categoria", cats[0]?._id || "");
+    }, [selectedRestaurant, categories]);
+
+    // Preview de nueva imagen seleccionada
+    useEffect(() => {
+        if (!watchedFoto || watchedFoto.length === 0) { setPreview(null); return; }
+        const url = URL.createObjectURL(watchedFoto[0]);
+        setPreview(url);
+        return () => URL.revokeObjectURL(url);
+    }, [watchedFoto]);
+
+    // Poblar formulario al abrir
+    useEffect(() => {
+        if (isOpen) {
+            setPreview(null);
+            if (product) {
+                setExistingPhoto(product.foto_url?.[0] ?? null);
+                reset({
+                    id_restaurante: product?.id_restaurante?._id || product?.id_restaurante || "",
+                    nombre: product?.nombre || "",
+                    descripcion: product?.descripcion || "",
+                    categoria: product?.categoria?._id || product?.categoria || "",
+                    precio: product?.precio || "",
+                    disponibilidad: product?.disponibilidad ?? true,
+                });
+            } else {
+                setExistingPhoto(null);
+                reset({
+                    id_restaurante: "",
+                    nombre: "",
+                    descripcion: "",
+                    categoria: "",
+                    precio: "",
+                    disponibilidad: true,
+                });
+            }
+        }
+    }, [isOpen, product, reset]);
+
+    const onSubmit = async (data) => {
+        try {
+            await saveProduct(data, product?._id ?? null);
+            showSuccess(isEditing ? "Producto actualizado correctamente" : "Producto creado correctamente");
+            reset();
+            setPreview(null);
+            setExistingPhoto(null);
+            onSaved?.();
+            onClose();
+        } catch (error) {
+            showError("Error al guardar el producto");
+        }
     };
 
     if (!isOpen) return null;
@@ -68,7 +103,9 @@ export const ProductModal = ({ isOpen, onClose, product = null }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-[#E8D8C3] max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D8C3] bg-[#3A2E2A] rounded-t-2xl sticky top-0">
+
+                {/* HEADER */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D8C3] bg-[#3A2E2A] rounded-t-2xl sticky top-0 z-10">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-[#E67E22]/20 flex items-center justify-center">
                             <UtensilsCrossed size={16} className="text-[#E67E22]" />
@@ -77,132 +114,121 @@ export const ProductModal = ({ isOpen, onClose, product = null }) => {
                             {isEditing ? "Editar Producto" : "Nuevo Producto"}
                         </h3>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
-                    >
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
                         <X size={18} />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+                <div className="px-6 py-5 space-y-4">
 
-                    {/* id_restaurante: required en schema, deshabilitado al editar */}
-                    <div>
-                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                            Restaurante *
-                        </label>
+                    {/* Restaurante */}
+                    <div className="flex flex-col">
+                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante *</label>
                         <select
-                            name="id_restaurante"
-                            value={form.id_restaurante}
-                            onChange={handleChange}
-                            required
                             disabled={isEditing}
-                            className={`w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
+                            className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors
+                                ${errors.id_restaurante ? "border-red-400" : "border-[#E8D8C3]"}
+                                ${isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
+                            {...register("id_restaurante", { required: "Debes seleccionar un restaurante" })}
                         >
                             <option value="">Seleccionar restaurante...</option>
-                            {restaurantes.map((r) => (
+                            {restaurants.map((r) => (
                                 <option key={r._id} value={r._id}>{r.nombre}</option>
                             ))}
                         </select>
-                        {isEditing && (
-                            <p className="text-[10px] text-[#6B6B6B] mt-1">El restaurante no puede modificarse</p>
-                        )}
+                        {errors.id_restaurante && <span className="text-red-500 text-xs mt-1">{errors.id_restaurante.message}</span>}
+                        {isEditing && <p className="text-[10px] text-[#6B6B6B] mt-1">El restaurante no puede modificarse</p>}
                     </div>
 
-                    {/* nombre: required, trim en schema */}
-                    <div>
-                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                            Nombre del Producto *
-                        </label>
+                    {/* Nombre */}
+                    <div className="flex flex-col">
+                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Nombre del Producto *</label>
                         <input
-                            name="nombre"
-                            value={form.nombre}
-                            onChange={handleChange}
-                            required
                             placeholder="Ej: Burger Clásica"
-                            className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                            className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors
+                                ${errors.nombre ? "border-red-400" : "border-[#E8D8C3]"}`}
+                            {...register("nombre", {
+                                required: "El nombre es obligatorio",
+                                minLength: { value: 2, message: "Debe tener al menos 2 caracteres" },
+                            })}
                         />
+                        {errors.nombre && <span className="text-red-500 text-xs mt-1">{errors.nombre.message}</span>}
                     </div>
 
-                    {/* descripcion: opcional, trim en schema */}
-                    <div>
-                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                            Descripción
-                        </label>
+                    {/* Descripción */}
+                    <div className="flex flex-col">
+                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Descripción</label>
                         <textarea
-                            name="descripcion"
-                            value={form.descripcion}
-                            onChange={handleChange}
                             rows={2}
                             placeholder="Describe el producto..."
-                            className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors resize-none"
+                            className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors resize-none
+                                ${errors.descripcion ? "border-red-400" : "border-[#E8D8C3]"}`}
+                            {...register("descripcion", {
+                                maxLength: { value: 300, message: "Máximo 300 caracteres" },
+                            })}
                         />
+                        {errors.descripcion && <span className="text-red-500 text-xs mt-1">{errors.descripcion.message}</span>}
                     </div>
 
+                    {/* Categoría + Precio */}
                     <div className="grid grid-cols-2 gap-3">
-                        {/* categoria: enum del schema */}
-                        <div>
-                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                Categoría *
-                            </label>
+                        <div className="flex flex-col">
+                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Categoría *</label>
                             <select
-                                name="categoria"
-                                value={form.categoria}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                                disabled={!selectedRestaurant}
+                                className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors
+                                    ${errors.categoria ? "border-red-400" : "border-[#E8D8C3]"}
+                                    ${!selectedRestaurant ? "opacity-50 cursor-not-allowed" : ""}`}
+                                {...register("categoria", { required: "La categoría es obligatoria" })}
                             >
-                                {categorias.map((c) => (
-                                    <option key={c} value={c}>{c}</option>
+                                <option value="">
+                                    {!selectedRestaurant
+                                        ? "Selecciona un restaurante primero"
+                                        : filteredCategories.length === 0
+                                            ? "Sin categorías para este restaurante"
+                                            : "Seleccionar categoría..."}
+                                </option>
+                                {filteredCategories.map((c) => (
+                                    <option key={c._id} value={c._id}>{c.nombre}</option>
                                 ))}
                             </select>
+                            {errors.categoria && <span className="text-red-500 text-xs mt-1">{errors.categoria.message}</span>}
                         </div>
-                        {/* precio: required, min 0 en schema */}
-                        <div>
-                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                Precio (Q) *
-                            </label>
+
+                        <div className="flex flex-col">
+                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Precio (Q) *</label>
                             <input
-                                name="precio"
-                                value={form.precio}
-                                onChange={handleChange}
-                                required
                                 type="number"
-                                min="0"
                                 placeholder="Ej: 55"
-                                className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                                className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors
+                                    ${errors.precio ? "border-red-400" : "border-[#E8D8C3]"}`}
+                                {...register("precio", {
+                                    required: "El precio es obligatorio",
+                                    min: { value: 0.01, message: "Debe ser mayor a 0" },
+                                })}
                             />
+                            {errors.precio && <span className="text-red-500 text-xs mt-1">{errors.precio.message}</span>}
                         </div>
                     </div>
 
+                    {/* Disponibilidad + Estado */}
                     <div className="grid grid-cols-2 gap-3">
-                        {/* disponibilidad: Boolean, default true en schema */}
-                        <div>
-                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                Disponibilidad
-                            </label>
+                        <div className="flex flex-col">
+                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Disponibilidad</label>
                             <select
-                                name="disponibilidad"
-                                value={form.disponibilidad}
-                                onChange={handleChange}
                                 className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                                {...register("disponibilidad")}
                             >
                                 <option value="true">Disponible</option>
                                 <option value="false">No disponible</option>
                             </select>
                         </div>
-                        {/* activo: solo en edición — deleteProduct hace activo:false vía DELETE */}
                         {isEditing && (
-                            <div>
-                                <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                    Estado
-                                </label>
+                            <div className="flex flex-col">
+                                <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Estado</label>
                                 <select
-                                    name="activo"
-                                    value={form.activo}
-                                    onChange={handleChange}
                                     className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                                    {...register("activo")}
                                 >
                                     <option value="true">Activo</option>
                                     <option value="false">Inactivo</option>
@@ -211,32 +237,67 @@ export const ProductModal = ({ isOpen, onClose, product = null }) => {
                         )}
                     </div>
 
-                    {/* foto_url: array en schema — gestion de upload va aparte, se indica al usuario */}
-                    {isEditing && product?.foto_url?.length > 0 && (
-                        <div>
-                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                Fotos actuales
-                            </label>
-                            <p className="text-xs text-[#6B6B6B]">{product.foto_url.length} imagen(es) registrada(s)</p>
-                        </div>
-                    )}
+                    {/* IMAGEN */}
+                    <div className="flex flex-col">
+                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-2">
+                            Imagen del Producto
+                        </label>
 
+                        {/* Foto existente en edición (solo si no hay nueva seleccionada) */}
+                        {isEditing && existingPhoto && !preview && (
+                            <div className="mb-3">
+                                <p className="text-[10px] text-[#6B6B6B] mb-2">Foto actual — se reemplazará si subes una nueva</p>
+                                <div className="w-16 h-16 rounded-xl overflow-hidden border border-[#E8D8C3]">
+                                    <img src={existingPhoto} alt="foto-actual" className="w-full h-full object-cover" />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Preview de nueva imagen */}
+                        {preview && (
+                            <div className="mb-3">
+                                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-[#E67E22]">
+                                    <img src={preview} alt="preview" className="w-full h-full object-cover" />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Input de archivo */}
+                        <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-[#E8D8C3] rounded-xl cursor-pointer hover:border-[#E67E22] hover:bg-[#FDF6EE] transition-colors group">
+                            <ImagePlus size={18} className="text-[#6B6B6B] group-hover:text-[#E67E22] transition-colors shrink-0" />
+                            <span className="text-sm text-[#6B6B6B] group-hover:text-[#E67E22] transition-colors">
+                                {preview
+                                    ? "Imagen seleccionada — clic para cambiar"
+                                    : "Seleccionar imagen..."}
+                            </span>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                {...register("foto")}
+                            />
+                        </label>
+                    </div>
+
+                    {/* BOTONES */}
                     <div className="flex justify-end gap-3 pt-2 border-t border-[#E8D8C3]">
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={() => { reset(); setPreview(null); setExistingPhoto(null); onClose(); }}
                             className="px-4 py-2 rounded-xl border border-[#E8D8C3] text-sm font-semibold text-[#6B6B6B] hover:bg-[#F5EFE6] transition-colors"
                         >
                             Cancelar
                         </button>
                         <button
-                            type="submit"
-                            className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors"
+                            type="button"
+                            onClick={handleSubmit(onSubmit)}
+                            disabled={loading}
+                            className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors disabled:opacity-60"
                         >
-                            {isEditing ? "Guardar Cambios" : "Crear Producto"}
+                            {loading ? "Guardando..." : isEditing ? "Guardar Cambios" : "Crear Producto"}
                         </button>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     );
