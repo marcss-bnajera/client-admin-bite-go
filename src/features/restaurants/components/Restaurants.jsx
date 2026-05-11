@@ -5,6 +5,7 @@ import { TableModal } from "../../tables/components/TableModal.jsx";
 import { Pagination } from "../../../shared/components/ui/Pagination";
 import { useRestaurants } from "../hooks/useRestaurants";
 import { useRestaurantsStore } from "../store/restaurantsStore";
+import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const LIMIT = 6;
 
@@ -22,33 +23,23 @@ const RestaurantCard = ({ restaurant: r, onEdit, onToggleActive, onAddTable }) =
 
         <div className="space-y-1.5 mb-3">
             <div className="flex items-center gap-2 text-sm text-[#6B6B6B]">
-                <MapPin size={13} className="text-[#E67E22] shrink-0" />
-                {r.direccion?.texto}
+                <MapPin size={13} className="text-[#E67E22] shrink-0" />{r.direccion?.texto}
             </div>
             <div className="flex items-center gap-2 text-sm text-[#6B6B6B]">
-                <Clock size={13} className="text-[#E67E22] shrink-0" />
-                {r.horarios_atencion}
+                <Clock size={13} className="text-[#E67E22] shrink-0" />{r.horarios_atencion}
             </div>
             <div className="flex items-center gap-2 text-sm text-[#6B6B6B]">
-                <Phone size={13} className="text-[#E67E22] shrink-0" />
-                {r.informacion_contacto?.telefono}
+                <Phone size={13} className="text-[#E67E22] shrink-0" />{r.informacion_contacto?.telefono}
             </div>
             <div className="flex items-center gap-2 text-sm text-[#6B6B6B]">
-                <Mail size={13} className="text-[#E67E22] shrink-0" />
-                {r.informacion_contacto?.email}
+                <Mail size={13} className="text-[#E67E22] shrink-0" />{r.informacion_contacto?.email}
             </div>
         </div>
 
         <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-xs font-semibold px-2 py-1 rounded-lg">
-                {r.mesas?.length ?? 0} mesas
-            </span>
-            <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-xs font-semibold px-2 py-1 rounded-lg">
-                {r.eventos?.length ?? 0} eventos
-            </span>
-            <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-xs font-semibold px-2 py-1 rounded-lg">
-                Precio prom: <span className="text-[#E67E22]">Q{r.precio_promedio}</span>
-            </span>
+            <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-xs font-semibold px-2 py-1 rounded-lg">{r.mesas?.length ?? 0} mesas</span>
+            <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-xs font-semibold px-2 py-1 rounded-lg">{r.eventos?.length ?? 0} eventos</span>
+            <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-xs font-semibold px-2 py-1 rounded-lg">Precio prom: <span className="text-[#E67E22]">Q{r.precio_promedio}</span></span>
         </div>
 
         <div className="flex justify-end gap-2 border-t border-[#E8D8C3] pt-3">
@@ -71,7 +62,7 @@ const RestaurantCard = ({ restaurant: r, onEdit, onToggleActive, onAddTable }) =
 
 export const Restaurants = () => {
     const { restaurants, loading, getRestaurants } = useRestaurants();
-    const { deleteRestaurant } = useRestaurantsStore();
+    const { deleteRestaurant, activateRestaurant } = useRestaurantsStore();
 
     const [modalOpen, setModalOpen] = useState(false);
     const [tableModalOpen, setTableModalOpen] = useState(false);
@@ -90,7 +81,24 @@ export const Restaurants = () => {
     const handleNew = () => { setSelectedRestaurant(null); setModalOpen(true); };
     const handleEdit = (r) => { setSelectedRestaurant(r); setModalOpen(true); };
     const handleAddTable = (r) => { setSelectedRestaurant(r); setTableModalOpen(true); };
-    const handleToggleActive = (r) => deleteRestaurant(r._id);
+
+    const handleToggleActive = (r) => {
+        if (r.activo) {
+            showConfirmToast({
+                title: "Desactivar restaurante",
+                message: `¿Desactivar "${r.nombre}"?`,
+                type: "deactivate",
+                onConfirm: () => deleteRestaurant(r._id),
+            });
+        } else {
+            showConfirmToast({
+                title: "Reactivar restaurante",
+                message: `¿Reactivar "${r.nombre}"?`,
+                type: "activate",
+                onConfirm: () => activateRestaurant(r._id),
+            });
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -120,13 +128,7 @@ export const Restaurants = () => {
                 ) : paginated.length === 0 ? (
                     <p className="text-[#6B6B6B] text-sm col-span-3 text-center py-10">No hay restaurantes registrados</p>
                 ) : paginated.map((r) => (
-                    <RestaurantCard
-                        key={r._id}
-                        restaurant={r}
-                        onEdit={handleEdit}
-                        onToggleActive={handleToggleActive}
-                        onAddTable={handleAddTable}
-                    />
+                    <RestaurantCard key={r._id} restaurant={r} onEdit={handleEdit} onToggleActive={handleToggleActive} onAddTable={handleAddTable} />
                 ))}
             </div>
 

@@ -4,6 +4,7 @@ import {
     createProduct as createProductRequest,
     updateProduct as updateProductRequest,
     deleteProduct as deleteProductRequest,
+    activateProduct as activateProductRequest,
     addRecipeItem as addRecipeItemRequest,
     updateRecipeItem as updateRecipeItemRequest,
     deleteRecipeItem as deleteRecipeItemRequest,
@@ -31,6 +32,7 @@ export const useProductsStore = create((set, get) => ({
             set({ products: [response.data.product, ...get().products], loading: false });
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al crear producto", loading: false });
+            throw error;
         }
     },
 
@@ -44,6 +46,7 @@ export const useProductsStore = create((set, get) => ({
             });
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al actualizar producto", loading: false });
+            throw error;
         }
     },
 
@@ -52,13 +55,26 @@ export const useProductsStore = create((set, get) => ({
             set({ loading: true, error: null });
             await deleteProductRequest(id);
             set({
-                products: get().products.map((p) =>
-                    p._id === id ? { ...p, activo: false } : p
-                ),
+                products: get().products.map((p) => p._id === id ? { ...p, activo: false } : p),
                 loading: false,
             });
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al desactivar producto", loading: false });
+            throw error;
+        }
+    },
+
+    activateProduct: async (id) => {
+        try {
+            set({ loading: true, error: null });
+            await activateProductRequest(id);
+            set({
+                products: get().products.map((p) => p._id === id ? { ...p, activo: true } : p),
+                loading: false,
+            });
+        } catch (error) {
+            set({ error: error.response?.data?.message || "Error al reactivar producto", loading: false });
+            throw error;
         }
     },
 
@@ -106,21 +122,6 @@ export const useProductsStore = create((set, get) => ({
             });
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al eliminar ingrediente", loading: false });
-        }
-    },
-
-    toggleProduct: async (id, activo) => {
-        try {
-            set({ loading: true, error: null });
-            await updateProductRequest(id, { activo });
-            set({
-                products: get().products.map((p) =>
-                    p._id === id ? { ...p, activo } : p
-                ),
-                loading: false,
-            });
-        } catch (error) {
-            set({ error: error.response?.data?.message || "Error al actualizar producto", loading: false });
         }
     },
 }));

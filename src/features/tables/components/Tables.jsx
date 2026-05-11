@@ -4,6 +4,7 @@ import { TableModal } from "./TableModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
 import { useRestaurants } from "../../restaurants/hooks/useRestaurants";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
+import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const estadoColor = {
     Disponible: "bg-[#A8D5BA] text-green-900",
@@ -23,7 +24,6 @@ export const Tables = () => {
     const [search, setSearch] = useState("");
     const [filterEstado, setFilterEstado] = useState("Disponible");
     const [page, setPage] = useState(1);
-    // const [isEditing, setIsEditing] = useState(false);
 
     const allMesas = restaurants.flatMap((r) =>
         (r.mesas ?? []).map((m) => ({ ...m, id_restaurante: { _id: r._id, nombre: r.nombre } }))
@@ -31,35 +31,28 @@ export const Tables = () => {
 
     const filtered = allMesas.filter((m) => {
         if (selectedTable && m._id === selectedTable._id) return true;
-
         const matchSearch =
             m.id_restaurante.nombre.toLowerCase().includes(search.toLowerCase()) ||
             m.ubicacion.toLowerCase().includes(search.toLowerCase());
-
         const matchEstado = filterEstado ? m.estado === filterEstado : true;
-
         return matchSearch && matchEstado;
     });
 
     const totalPages = Math.ceil(filtered.length / LIMIT);
     const paginated = filtered.slice((page - 1) * LIMIT, page * LIMIT);
 
-    const handleNew = () => {
-        setSelectedTable(null);
-        setModalOpen(true);
-    };
+    const handleNew = () => { setSelectedTable(null); setModalOpen(true); };
+    const handleEdit = (table) => { setSelectedTable(table); setModalOpen(true); };
+    const handleClose = () => { setModalOpen(false); setSelectedTable(null); };
 
-    const handleEdit = (table) => {
-        setSelectedTable(table);
-        setModalOpen(true);
+    const handleDelete = (mesa) => {
+        showConfirmToast({
+            title: "Eliminar mesa",
+            message: `¿Eliminar la Mesa ${mesa.numero} de ${mesa.id_restaurante.nombre}?`,
+            type: "delete",
+            onConfirm: () => deleteMesa(mesa.id_restaurante._id, mesa._id),
+        });
     };
-
-    const handleClose = () => {
-        setModalOpen(false);
-        setSelectedTable(null);
-    };
-
-    const handleDelete = (mesa) => deleteMesa(mesa.id_restaurante._id, mesa._id);
 
     return (
         <div className="space-y-6">
@@ -110,9 +103,7 @@ export const Tables = () => {
                                     <p className="text-xs text-[#6B6B6B]">{mesa.id_restaurante.nombre}</p>
                                 </div>
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${estadoColor[mesa.estado]}`}>
-                                {mesa.estado}
-                            </span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${estadoColor[mesa.estado]}`}>{mesa.estado}</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 mb-4">

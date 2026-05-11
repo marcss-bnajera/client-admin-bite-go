@@ -4,6 +4,7 @@ import {
     createRestaurant as createRestaurantRequest,
     updateRestaurant as updateRestaurantRequest,
     deleteRestaurant as deleteRestaurantRequest,
+    activateRestaurant as activateRestaurantRequest,
     addMesa as addMesaRequest,
     updateMesa as updateMesaRequest,
     deleteMesa as deleteMesaRequest,
@@ -17,19 +18,13 @@ export const useRestaurantsStore = create((set, get) => ({
     loading: false,
     error: null,
 
-    getRestaurants: async () => {
+    getRestaurants: async (params) => {
         try {
             set({ loading: true, error: null });
-            const response = await getRestaurantsRequest();
-            set({
-                restaurants: response.data.restaurants ?? [],
-                loading: false,
-            });
+            const response = await getRestaurantsRequest(params);
+            set({ restaurants: response.data.restaurants ?? [], loading: false });
         } catch (error) {
-            set({
-                error: error.response?.data?.message || "Error al obtener restaurantes",
-                loading: false,
-            });
+            set({ error: error.response?.data?.message || "Error al obtener restaurantes", loading: false });
         }
     },
 
@@ -39,8 +34,8 @@ export const useRestaurantsStore = create((set, get) => ({
             const response = await createRestaurantRequest(data);
             set({ restaurants: [response.data.restaurant, ...get().restaurants], loading: false });
         } catch (error) {
-            console.log("CATCH EN STORE:", error);
             set({ error: error.response?.data?.message || "Error al crear restaurante", loading: false });
+            throw error;
         }
     },
 
@@ -54,6 +49,7 @@ export const useRestaurantsStore = create((set, get) => ({
             });
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al actualizar restaurante", loading: false });
+            throw error;
         }
     },
 
@@ -61,12 +57,30 @@ export const useRestaurantsStore = create((set, get) => ({
         try {
             set({ loading: true, error: null });
             await deleteRestaurantRequest(id);
-            set({ restaurants: get().restaurants.filter((r) => r._id !== id), loading: false });
+            set({
+                restaurants: get().restaurants.map((r) => r._id === id ? { ...r, activo: false } : r),
+                loading: false,
+            });
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al desactivar restaurante", loading: false });
+            throw error;
         }
     },
-    //subDocumentos
+
+    activateRestaurant: async (id) => {
+        try {
+            set({ loading: true, error: null });
+            await activateRestaurantRequest(id);
+            set({
+                restaurants: get().restaurants.map((r) => r._id === id ? { ...r, activo: true } : r),
+                loading: false,
+            });
+        } catch (error) {
+            set({ error: error.response?.data?.message || "Error al reactivar restaurante", loading: false });
+            throw error;
+        }
+    },
+
     addMesa: async (restaurantId, data) => {
         try {
             set({ loading: true, error: null });
@@ -128,7 +142,7 @@ export const useRestaurantsStore = create((set, get) => ({
     updateEvento: async (restId, eventoId, data) => {
         try {
             set({ loading: true, error: null });
-            const response = await updateEventoRequest(restId, eventoId, data);
+            await updateEventoRequest(restId, eventoId, data);
             await get().getRestaurants();
             set({ loading: false });
         } catch (error) {

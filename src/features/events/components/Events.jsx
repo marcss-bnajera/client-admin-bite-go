@@ -4,6 +4,7 @@ import { EventModal } from "./EventModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
 import { useRestaurants } from "../../restaurants/hooks/useRestaurants";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
+import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const LIMIT = 6;
 
@@ -30,7 +31,14 @@ export const Events = () => {
 
     const handleNew = () => { setSelectedEvent(null); setModalOpen(true); };
     const handleEdit = (evt) => { setSelectedEvent(evt); setModalOpen(true); };
-    const handleDelete = (evt) => deleteEvento(evt.id_restaurante._id, evt._id);
+    const handleDelete = (evt) => {
+        showConfirmToast({
+            title: "Eliminar evento",
+            message: `¿Eliminar "${evt.nombre}"?`,
+            type: "delete",
+            onConfirm: () => deleteEvento(evt.id_restaurante._id, evt._id),
+        });
+    };
 
     return (
         <div className="space-y-6">

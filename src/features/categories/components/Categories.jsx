@@ -4,6 +4,7 @@ import { CategoryModal } from "./CategoryModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
 import { useCategories } from "../hooks/useCategories";
 import { useCategoriesStore } from "../store/categoriesStore";
+import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const LIMIT = 10;
 
@@ -43,11 +44,27 @@ export const Categories = () => {
         categories.map((c) => [c.id_restaurante?._id, c.id_restaurante])
     ).values()].filter(Boolean);
 
-    const handleToggleActivo = async (cat) => {
+    const handleToggleActivo = (cat) => {
         if (cat.activo) {
-            await deleteCategory(cat._id);
+            showConfirmToast({
+                title: "Desactivar categoría",
+                message: `¿Desactivar "${cat.nombre}"?`,
+                type: "deactivate",
+                onConfirm: async () => {
+                    await deleteCategory(cat._id);
+                    getCategories();
+                },
+            });
         } else {
-            await activateCategory(cat._id);
+            showConfirmToast({
+                title: "Reactivar categoría",
+                message: `¿Reactivar "${cat.nombre}"?`,
+                type: "activate",
+                onConfirm: async () => {
+                    await activateCategory(cat._id);
+                    getCategories();
+                },
+            });
         }
     };
 
@@ -66,7 +83,6 @@ export const Categories = () => {
                 </button>
             </div>
 
-            {/* Filtros */}
             <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2 flex-1">
                     <Search size={16} className="text-[#6B6B6B] shrink-0" />
@@ -114,17 +130,9 @@ export const Categories = () => {
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-10 text-center text-[#6B6B6B]">
-                                    Cargando categorías...
-                                </td>
-                            </tr>
+                            <tr><td colSpan={5} className="px-6 py-10 text-center text-[#6B6B6B]">Cargando categorías...</td></tr>
                         ) : paginated.length === 0 ? (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">
-                                    No se encontraron categorías
-                                </td>
-                            </tr>
+                            <tr><td colSpan={5} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">No se encontraron categorías</td></tr>
                         ) : paginated.map((cat, index) => (
                             <tr
                                 key={cat._id}

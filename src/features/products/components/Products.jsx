@@ -4,7 +4,7 @@ import { ProductModal } from "./ProductModal";
 import { useProducts } from "../hooks/useProducts";
 import { useProductsStore } from "../store/productsStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
-import { showSuccess, showError } from "../../../shared/utils/toast";
+import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const categoriaColor = {
     Entradas: { bg: "bg-[#EAD7A4]", text: "text-yellow-800" },
@@ -18,7 +18,7 @@ const PAGE_SIZE = 9;
 
 export const Products = () => {
     const { products, loading, getProducts } = useProducts();
-    const { deleteProduct, toggleProduct } = useProductsStore();
+    const { deleteProduct, activateProduct } = useProductsStore();
     const restaurants = useRestaurantsStore((state) => state.restaurants);
     const getRestaurants = useRestaurantsStore((state) => state.getRestaurants);
 
@@ -61,37 +61,21 @@ export const Products = () => {
     const handleEdit = (p) => { setSelectedProduct(p); setModalOpen(true); };
     const handleFilter = (setter) => (e) => { setter(e.target.value); setPage(1); };
 
-    const handleToggle = async (id) => {
-        const product = (products ?? []).find(p => p._id === id);
-        if (!product) return;
-        try {
-            if (product.activo) {
-                await deleteProduct(id);
-                showSuccess("Producto desactivado");
-            } else {
-                await toggleProduct(id, true); s
-                showSuccess("Producto reactivado");
-            }
-        } catch {
-            showError("Error al actualizar el producto");
-        }
-    };
-
-    const handleToggleExecute = async () => {
-        const product = (products ?? []).find(p => p._id === confirmId);
-        if (!product) return;
-        try {
-            if (product.activo) {
-                await deleteProduct(confirmId);
-                showSuccess("Producto desactivado");
-            } else {
-                await toggleProduct(confirmId, true);
-                showSuccess("Producto reactivado");
-            }
-        } catch {
-            showError("Error al actualizar el producto");
-        } finally {
-            setConfirmId(null);
+    const handleToggle = (p) => {
+        if (p.activo) {
+            showConfirmToast({
+                title: "Desactivar producto",
+                message: `¿Desactivar "${p.nombre}"?`,
+                type: "deactivate",
+                onConfirm: () => deleteProduct(p._id),
+            });
+        } else {
+            showConfirmToast({
+                title: "Reactivar producto",
+                message: `¿Reactivar "${p.nombre}"?`,
+                type: "activate",
+                onConfirm: () => activateProduct(p._id),
+            });
         }
     };
 
@@ -145,9 +129,7 @@ export const Products = () => {
 
             {/* CONTENIDO */}
             {loading ? (
-                <div className="flex items-center justify-center py-20 text-[#6B6B6B] text-sm">
-                    Cargando productos...
-                </div>
+                <div className="flex items-center justify-center py-20 text-[#6B6B6B] text-sm">Cargando productos...</div>
             ) : paginated.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-2 text-[#6B6B6B]">
                     <ImageOff size={32} className="opacity-40" />
@@ -160,20 +142,13 @@ export const Products = () => {
                         return (
                             <div key={cat}>
                                 <div className="flex items-center gap-3 mb-3">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${colors.bg} ${colors.text}`}>
-                                        {cat}
-                                    </span>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${colors.bg} ${colors.text}`}>{cat}</span>
                                     <div className="flex-1 h-px bg-[#E8D8C3]" />
                                     <span className="text-xs text-[#6B6B6B]">{prods.length} producto{prods.length !== 1 ? "s" : ""}</span>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {prods.map((p) => (
-                                        <ProductCard
-                                            key={p._id}
-                                            product={p}
-                                            onEdit={handleEdit}
-                                            onToggle={handleToggle}
-                                        />
+                                        <ProductCard key={p._id} product={p} onEdit={handleEdit} onToggle={handleToggle} />
                                     ))}
                                 </div>
                             </div>
@@ -185,28 +160,13 @@ export const Products = () => {
             {/* PAGINACIÓN */}
             {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-2 pt-2">
-                    <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="p-2 rounded-xl border border-[#E8D8C3] text-[#6B6B6B] hover:bg-[#F5EFE6] disabled:opacity-30 transition-colors"
-                    >
+                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-xl border border-[#E8D8C3] text-[#6B6B6B] hover:bg-[#F5EFE6] disabled:opacity-30 transition-colors">
                         <ChevronLeft size={16} />
                     </button>
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                        <button
-                            key={n}
-                            onClick={() => setPage(n)}
-                            className={`w-8 h-8 rounded-xl text-sm font-bold transition-colors
-                                ${n === page ? "bg-[#C0392B] text-white" : "border border-[#E8D8C3] text-[#6B6B6B] hover:bg-[#F5EFE6]"}`}
-                        >
-                            {n}
-                        </button>
+                        <button key={n} onClick={() => setPage(n)} className={`w-8 h-8 rounded-xl text-sm font-bold transition-colors ${n === page ? "bg-[#C0392B] text-white" : "border border-[#E8D8C3] text-[#6B6B6B] hover:bg-[#F5EFE6]"}`}>{n}</button>
                     ))}
-                    <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                        className="p-2 rounded-xl border border-[#E8D8C3] text-[#6B6B6B] hover:bg-[#F5EFE6] disabled:opacity-30 transition-colors"
-                    >
+                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-xl border border-[#E8D8C3] text-[#6B6B6B] hover:bg-[#F5EFE6] disabled:opacity-30 transition-colors">
                         <ChevronRight size={16} />
                     </button>
                     <span className="text-xs text-[#6B6B6B] ml-1">{filtered.length} producto{filtered.length !== 1 ? "s" : ""}</span>
@@ -223,71 +183,46 @@ export const Products = () => {
     );
 };
 
-/* ── Card individual ── */
 const ProductCard = ({ product: p, onEdit, onToggle }) => {
     const colors = categoriaColor[p.categoria?.nombre] ?? categoriaColor.Otros;
-
     return (
         <div className={`bg-white border border-[#E8D8C3] rounded-2xl overflow-hidden flex flex-col transition-opacity ${!p.activo ? "opacity-55" : ""}`}>
-
-            {/* Imagen */}
             <div className="w-full aspect-video bg-[#F5EFE6] flex items-center justify-center overflow-hidden relative">
                 {p.foto_url?.length > 0
                     ? <img src={p.foto_url[0]} alt={p.nombre} className="w-full h-full object-cover" />
                     : <ImageOff size={28} className="text-[#C8B89A]" />
                 }
-                <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold
-                    ${p.disponibilidad ? "bg-[#A8D5BA] text-green-900" : "bg-[#E6A5A5] text-red-900"}`}>
+                <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${p.disponibilidad ? "bg-[#A8D5BA] text-green-900" : "bg-[#E6A5A5] text-red-900"}`}>
                     {p.disponibilidad ? "Disponible" : "No disponible"}
                 </span>
                 {!p.activo && (
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#2B2B2B]/70 text-white">
-                        Inactivo
-                    </span>
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#2B2B2B]/70 text-white">Inactivo</span>
                 )}
             </div>
-
-            {/* Body */}
             <div className="p-3 flex flex-col gap-1.5 flex-1">
                 <p className="font-extrabold text-[#2B2B2B] text-sm leading-tight">{p.nombre}</p>
-                {p.descripcion && (
-                    <p className="text-xs text-[#6B6B6B] leading-relaxed line-clamp-2">{p.descripcion}</p>
-                )}
+                {p.descripcion && <p className="text-xs text-[#6B6B6B] leading-relaxed line-clamp-2">{p.descripcion}</p>}
                 <div className="flex flex-wrap gap-1.5 mt-1">
                     {p.receta?.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#A8D5BA] text-green-900">
-                            {p.receta.length} insumo{p.receta.length !== 1 ? "s" : ""}
-                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#A8D5BA] text-green-900">{p.receta.length} insumo{p.receta.length !== 1 ? "s" : ""}</span>
                     )}
                     {p.variaciones?.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#A9C7E8] text-blue-900">
-                            {p.variaciones.length} variación{p.variaciones.length !== 1 ? "es" : ""}
-                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#A9C7E8] text-blue-900">{p.variaciones.length} variación{p.variaciones.length !== 1 ? "es" : ""}</span>
                     )}
                 </div>
             </div>
-
-            {/* Footer */}
             <div className="flex items-center justify-between px-3 py-2.5 border-t border-[#E8D8C3]">
                 <div>
                     <p className="text-base font-extrabold text-[#C0392B]">Q{p.precio.toFixed(2)}</p>
                     <p className="text-[10px] text-[#6B6B6B]">{p.id_restaurante?.nombre || "—"}</p>
                 </div>
                 <div className="flex gap-1.5">
-                    <button
-                        onClick={() => onEdit(p)}
-                        className="p-2 rounded-xl border border-[#E8D8C3] text-[#E67E22] hover:bg-[#FDF6EE] hover:border-[#FAC775] transition-colors"
-                        title="Editar"
-                    >
+                    <button onClick={() => onEdit(p)} className="p-2 rounded-xl border border-[#E8D8C3] text-[#E67E22] hover:bg-[#FDF6EE] hover:border-[#FAC775] transition-colors" title="Editar">
                         <Pencil size={14} />
                     </button>
                     <button
-                        onClick={() => onToggle(p._id)}
-                        className={`p-2 rounded-xl border transition-colors
-                            ${p.activo
-                                ? "border-[#E8D8C3] text-[#C0392B] hover:bg-red-50 hover:border-[#F09595]"
-                                : "border-[#E8D8C3] text-[#0F6E56] hover:bg-[#E1F5EE] hover:border-[#5DCAA5]"
-                            }`}
+                        onClick={() => onToggle(p)}
+                        className={`p-2 rounded-xl border transition-colors ${p.activo ? "border-[#E8D8C3] text-[#C0392B] hover:bg-red-50 hover:border-[#F09595]" : "border-[#E8D8C3] text-[#0F6E56] hover:bg-[#E1F5EE] hover:border-[#5DCAA5]"}`}
                         title={p.activo ? "Desactivar" : "Reactivar"}
                     >
                         {p.activo ? <EyeOff size={14} /> : <Eye size={14} />}

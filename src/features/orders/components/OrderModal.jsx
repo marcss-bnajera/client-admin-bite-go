@@ -1,36 +1,12 @@
 import { X, ClipboardList, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useSaveOrder } from "../hooks/useSaveOrder";
+import { useOrdersStore } from "../store/ordersStore";
+import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
+import { useProductsStore } from "../../products/store/productsStore";
+import { useUsersStore } from "../../users/store/usersStore";
+import { showSuccess, showError } from "../../../shared/utils/toast";
 
-const usuarios = [
-    { _id: "user_001", nombre: "Juan Pérez" },
-    { _id: "user_002", nombre: "María López" },
-    { _id: "user_003", nombre: "Carlos Ruiz" },
-];
-
-const restaurantes = [
-    { _id: "rest_001", nombre: "Bite Central" },
-    { _id: "rest_002", nombre: "Bite Norte" },
-    { _id: "rest_003", nombre: "Bite Sur" },
-];
-
-const meseros = [
-    { _id: "mes_001", nombre: "Pedro Mesero" },
-    { _id: "mes_002", nombre: "Ana Mesera" },
-];
-
-const repartidores = [
-    { _id: "rep_001", nombre: "Luis Reparto" },
-    { _id: "rep_002", nombre: "Carlos Reparto" },
-];
-
-const productosDisponibles = [
-    { _id: "prod_001", nombre: "Burger Clásica", precio: 55 },
-    { _id: "prod_002", nombre: "Limonada Natural", precio: 25 },
-    { _id: "prod_003", nombre: "Alitas BBQ", precio: 65 },
-    { _id: "prod_004", nombre: "Pasta Alfredo", precio: 70 },
-];
-
-// Estados que permiten edición de items (solo en Pendiente tiene sentido)
 const ESTADOS_EDITABLES = ["Pendiente"];
 
 const buildForm = (order) => ({
@@ -44,13 +20,30 @@ const buildForm = (order) => ({
     items: order?.items ?? [],
 });
 
-export const OrderModal = ({ isOpen, onClose, order = null }) => {
+export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
     const isEditing = !!order;
+    const { saveOrder } = useSaveOrder();
+    const loading = useOrdersStore((state) => state.loading);
+
+    const restaurants = useRestaurantsStore((state) => state.restaurants);
+    const getRestaurants = useRestaurantsStore((state) => state.getRestaurants);
+    const products = useProductsStore((state) => state.products);
+    const getProducts = useProductsStore((state) => state.getProducts);
+    const users = useUsersStore((state) => state.users);
+    const getUsers = useUsersStore((state) => state.getUsers);
 
     const [form, setForm] = useState(() => buildForm(order));
     const [nuevoItem, setNuevoItem] = useState({ id_producto: "", cantidad: 1, notas: "" });
 
-    // ✅ Corrección: resetear form cuando cambia el pedido seleccionado
+    // Cargar datos al abrir
+    useEffect(() => {
+        if (isOpen) {
+            getRestaurants();
+            getProducts({ activo: true, limit: 200 });
+            getUsers({ activo: true, limit: 200 });
+        }
+    }, [isOpen]);
+
     useEffect(() => {
         setForm(buildForm(order));
         setNuevoItem({ id_producto: "", cantidad: 1, notas: "" });
@@ -58,24 +51,17 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-
-        // Al cambiar tipo_servicio, limpiar asignaciones que no aplican
         if (name === "tipo_servicio") {
-            setForm((prev) => ({
-                ...prev,
-                tipo_servicio: value,
-                id_mesero_asignado: "",
-                id_repartidor_asignado: "",
-            }));
+            setForm((prev) => ({ ...prev, tipo_servicio: value, id_mesero_asignado: "", id_repartidor_asignado: "" }));
             return;
         }
-
         setForm((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleAgregarItem = () => {
         if (!nuevoItem.id_producto) return;
-        const producto = productosDisponibles.find((p) => p._id === nuevoItem.id_producto);
+        const producto = products.find((p) => p._id === nuevoItem.id_producto);
+        if (!producto) return;
         setForm((prev) => ({
             ...prev,
             items: [
@@ -96,43 +82,40 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
         setForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
     };
 
-    const total = form.items.reduce(
-        (acc, item) => acc + item.precio_historico * item.cantidad,
-        0
-    );
+    const total = form.items.reduce((acc, item) => acc + item.precio_historico * item.cantidad, 0);
 
-    // ✅ Alineado al controller: createOrder y updateOrder reciben el body directo
-    // deleteOrder hace hard delete — el soft delete se maneja via updateOrder con activo:false
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-
-        const payload = {
-            id_usuario_cliente: form.id_usuario_cliente,
-            id_restaurante: form.id_restaurante,
-            id_mesero_asignado: form.id_mesero_asignado || null,
-            id_repartidor_asignado: form.id_repartidor_asignado || null,
-            tipo_servicio: form.tipo_servicio,
-            estado: form.estado,
-            activo: form.activo,
-            items: form.items,
-            total,
-        };
-
-        if (isEditing) {
-            console.log(`Payload → PUT /orders/${order._id}:`, payload);
-        } else {
-            console.log("Payload → POST /orders:", payload);
+        try {
+            await saveOrder({ ...form, total }, order?._id ?? null);
+            showSuccess(isEditing ? "Pedido actualizado correctamente" : "Pedido creado correctamente");
+            onSaved?.();
+            onClose();
+        } catch {
+            showError("Error al guardar el pedido");
         }
-
-        onClose();
     };
 
-    // ✅ Soft delete: alineado al campo `activo` del modelo
-    // El controller deleteOrder hace hard delete, pero la buena práctica es PATCH activo:false
-    const handleSoftDelete = () => {
-        console.log(`Payload → PUT /orders/${order._id}:`, { activo: false });
-        onClose();
+    const handleSoftDelete = async () => {
+        try {
+            await saveOrder({ ...form, activo: false, total }, order._id);
+            showSuccess("Pedido desactivado correctamente");
+            onSaved?.();
+            onClose();
+        } catch {
+            showError("Error al desactivar el pedido");
+        }
     };
+
+    // Filtrar usuarios por rol para cada select
+    const clientes = users.filter((u) => u.rol === "Cliente");
+    const meseros = users.filter((u) => u.rol === "Mesero");
+    const repartidores = users.filter((u) => u.rol === "Repartidor");
+
+    // Filtrar productos por restaurante seleccionado
+    const productosDisponibles = form.id_restaurante
+        ? products.filter((p) => (p.id_restaurante?._id || p.id_restaurante) === form.id_restaurante && p.activo && p.disponibilidad)
+        : products.filter((p) => p.activo && p.disponibilidad);
 
     const itemsEditables = !isEditing || ESTADOS_EDITABLES.includes(form.estado);
 
@@ -142,7 +125,7 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-[#E8D8C3] max-h-[90vh] overflow-y-auto">
 
-                {/* Header */}
+                {/* HEADER */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D8C3] bg-[#3A2E2A] rounded-t-2xl sticky top-0 z-10">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-[#E67E22]/20 flex items-center justify-center">
@@ -152,10 +135,7 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                             {isEditing ? `Pedido #${order._id.slice(-5).toUpperCase()}` : "Nuevo Pedido"}
                         </h3>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
-                    >
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
                         <X size={18} />
                     </button>
                 </div>
@@ -170,16 +150,14 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                         </div>
                     )}
 
-                    {/* Datos del pedido */}
+                    {/* DATOS DEL PEDIDO */}
                     <div>
-                        <p className="text-xs font-black text-[#6B6B6B] uppercase tracking-widest mb-3">
-                            Datos del Pedido
-                        </p>
+                        <p className="text-xs font-black text-[#6B6B6B] uppercase tracking-widest mb-3">Datos del Pedido</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                            {/* Cliente */}
                             <div>
-                                <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                    Cliente *
-                                </label>
+                                <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Cliente *</label>
                                 <select
                                     name="id_usuario_cliente"
                                     value={form.id_usuario_cliente}
@@ -189,15 +167,15 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                                     className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
                                     <option value="">Seleccionar cliente...</option>
-                                    {usuarios.map((u) => (
+                                    {clientes.map((u) => (
                                         <option key={u._id} value={u._id}>{u.nombre}</option>
                                     ))}
                                 </select>
                             </div>
+
+                            {/* Restaurante */}
                             <div>
-                                <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                    Restaurante *
-                                </label>
+                                <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante *</label>
                                 <select
                                     name="id_restaurante"
                                     value={form.id_restaurante}
@@ -207,15 +185,15 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                                     className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
                                     <option value="">Seleccionar restaurante...</option>
-                                    {restaurantes.map((r) => (
+                                    {restaurants.map((r) => (
                                         <option key={r._id} value={r._id}>{r.nombre}</option>
                                     ))}
                                 </select>
                             </div>
+
+                            {/* Tipo de servicio */}
                             <div>
-                                <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                    Tipo de Servicio *
-                                </label>
+                                <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Tipo de Servicio *</label>
                                 <select
                                     name="tipo_servicio"
                                     value={form.tipo_servicio}
@@ -229,12 +207,10 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                                 </select>
                             </div>
 
-                            {/* Estado solo editable al editar */}
+                            {/* Estado solo en edición */}
                             {isEditing && (
                                 <div>
-                                    <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                        Estado
-                                    </label>
+                                    <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Estado</label>
                                     <select
                                         name="estado"
                                         value={form.estado}
@@ -253,18 +229,14 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                         </div>
                     </div>
 
-                    {/* Asignaciones — condicional por tipo_servicio */}
+                    {/* ASIGNACIONES */}
                     {(form.tipo_servicio === "Comer aquí" || form.tipo_servicio === "Domicilio") && (
                         <div>
-                            <p className="text-xs font-black text-[#6B6B6B] uppercase tracking-widest mb-3">
-                                Asignaciones (Opcional)
-                            </p>
+                            <p className="text-xs font-black text-[#6B6B6B] uppercase tracking-widest mb-3">Asignaciones (Opcional)</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {form.tipo_servicio === "Comer aquí" && (
                                     <div>
-                                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                            Mesero Asignado
-                                        </label>
+                                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Mesero Asignado</label>
                                         <select
                                             name="id_mesero_asignado"
                                             value={form.id_mesero_asignado}
@@ -280,9 +252,7 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                                 )}
                                 {form.tipo_servicio === "Domicilio" && (
                                     <div>
-                                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
-                                            Repartidor Asignado
-                                        </label>
+                                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Repartidor Asignado</label>
                                         <select
                                             name="id_repartidor_asignado"
                                             value={form.id_repartidor_asignado}
@@ -300,13 +270,10 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                         </div>
                     )}
 
-                    {/* Items del pedido */}
+                    {/* ITEMS */}
                     <div>
-                        <p className="text-xs font-black text-[#6B6B6B] uppercase tracking-widest mb-3">
-                            Items del Pedido
-                        </p>
+                        <p className="text-xs font-black text-[#6B6B6B] uppercase tracking-widest mb-3">Items del Pedido</p>
 
-                        {/* Agregar item — solo si el estado lo permite */}
                         {itemsEditables && (
                             <div className="bg-[#F5EFE6] border border-[#E8D8C3] rounded-xl p-3 mb-3">
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
@@ -315,7 +282,9 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                                         onChange={(e) => setNuevoItem({ ...nuevoItem, id_producto: e.target.value })}
                                         className="px-3 py-2 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-white transition-colors"
                                     >
-                                        <option value="">Seleccionar producto...</option>
+                                        <option value="">
+                                            {!form.id_restaurante ? "Selecciona un restaurante primero" : "Seleccionar producto..."}
+                                        </option>
                                         {productosDisponibles.map((p) => (
                                             <option key={p._id} value={p._id}>{p.nombre} — Q{p.precio}</option>
                                         ))}
@@ -341,20 +310,15 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                                     onClick={handleAgregarItem}
                                     className="flex items-center gap-2 bg-[#E67E22] hover:bg-[#D35400] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                                 >
-                                    <Plus size={13} />
-                                    Agregar Item
+                                    <Plus size={13} /> Agregar Item
                                 </button>
                             </div>
                         )}
 
-                        {/* Lista de items */}
                         {form.items.length > 0 ? (
                             <div className="space-y-2">
                                 {form.items.map((item, index) => (
-                                    <div
-                                        key={index}
-                                        className="flex items-center justify-between bg-white border border-[#E8D8C3] rounded-xl px-4 py-3"
-                                    >
+                                    <div key={index} className="flex items-center justify-between bg-white border border-[#E8D8C3] rounded-xl px-4 py-3">
                                         <div>
                                             <p className="text-sm font-semibold text-[#2B2B2B]">{item.nombre_historico}</p>
                                             <p className="text-xs text-[#6B6B6B]">
@@ -392,17 +356,15 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                         )}
                     </div>
 
-                    {/* Footer */}
+                    {/* FOOTER */}
                     <div className="flex justify-between items-center gap-3 pt-2 border-t border-[#E8D8C3]">
-                        {/* Soft delete solo en edición y si está activo */}
                         {isEditing && form.activo ? (
                             <button
                                 type="button"
                                 onClick={handleSoftDelete}
                                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-[#C0392B] hover:bg-red-50 border border-red-200 transition-colors"
                             >
-                                <Trash2 size={13} />
-                                Desactivar Pedido
+                                <Trash2 size={13} /> Desactivar Pedido
                             </button>
                         ) : (
                             <span />
@@ -417,9 +379,10 @@ export const OrderModal = ({ isOpen, onClose, order = null }) => {
                             </button>
                             <button
                                 type="submit"
-                                className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors"
+                                disabled={loading}
+                                className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors disabled:opacity-60"
                             >
-                                {isEditing ? "Guardar Cambios" : "Crear Pedido"}
+                                {loading ? "Guardando..." : isEditing ? "Guardar Cambios" : "Crear Pedido"}
                             </button>
                         </div>
                     </div>

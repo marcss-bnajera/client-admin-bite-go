@@ -3,6 +3,7 @@ import { Plus, Search, Pencil, Trash2, BookOpen, FlaskConical } from "lucide-rea
 import { RecipeModal } from "./RecipeModal";
 import { useProducts } from "../../products/hooks/useProducts";
 import { useProductsStore } from "../../products/store/productsStore";
+import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 export const Recipes = () => {
     const { products, loading } = useProducts();
@@ -18,20 +19,16 @@ export const Recipes = () => {
         p.id_restaurante?.nombre?.toLowerCase().includes(search.toLowerCase())
     );
 
-    const handleAddIngredient = (productId) => {
-        setSelectedIngredient(null);
-        setSelectedProductId(productId);
-        setModalOpen(true);
-    };
+    const handleAddIngredient = (productId) => { setSelectedIngredient(null); setSelectedProductId(productId); setModalOpen(true); };
+    const handleEditIngredient = (ingredient, productId) => { setSelectedIngredient(ingredient); setSelectedProductId(productId); setModalOpen(true); };
 
-    const handleEditIngredient = (ingredient, productId) => {
-        setSelectedIngredient(ingredient);
-        setSelectedProductId(productId);
-        setModalOpen(true);
-    };
-
-    const handleDeleteIngredient = (productId, recipeId) => {
-        deleteRecipeItem(productId, recipeId);
+    const handleDeleteIngredient = (productId, ing) => {
+        showConfirmToast({
+            title: "Eliminar ingrediente",
+            message: `¿Eliminar "${ing.nombre_insumo}" de la receta?`,
+            type: "delete",
+            onConfirm: () => deleteRecipeItem(productId, ing._id),
+        });
     };
 
     return (
@@ -70,18 +67,13 @@ export const Recipes = () => {
                                     <p className="text-xs text-[#6B6B6B]">{producto.id_restaurante?.nombre ?? "—"}</p>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => handleAddIngredient(producto._id)}
-                                className="flex items-center gap-1 text-xs bg-[#E67E22] hover:bg-[#D35400] text-white px-2 py-1.5 rounded-lg font-bold transition-colors"
-                            >
+                            <button onClick={() => handleAddIngredient(producto._id)} className="flex items-center gap-1 text-xs bg-[#E67E22] hover:bg-[#D35400] text-white px-2 py-1.5 rounded-lg font-bold transition-colors">
                                 <Plus size={11} /> Ingrediente
                             </button>
                         </div>
 
                         {producto.receta?.length === 0 ? (
-                            <p className="text-xs text-[#6B6B6B] text-center py-3 border border-dashed border-[#E8D8C3] rounded-xl">
-                                Sin ingredientes registrados
-                            </p>
+                            <p className="text-xs text-[#6B6B6B] text-center py-3 border border-dashed border-[#E8D8C3] rounded-xl">Sin ingredientes registrados</p>
                         ) : (
                             <div className="space-y-2">
                                 {producto.receta?.map((ing) => (
@@ -91,13 +83,11 @@ export const Recipes = () => {
                                             <span className="text-xs text-[#2B2B2B] font-medium">{ing.nombre_insumo}</span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold text-[#2B2B2B] bg-[#E8D8C3] px-2 py-0.5 rounded-lg">
-                                                x{ing.cantidad_requerida}
-                                            </span>
+                                            <span className="text-xs font-bold text-[#2B2B2B] bg-[#E8D8C3] px-2 py-0.5 rounded-lg">x{ing.cantidad_requerida}</span>
                                             <button onClick={() => handleEditIngredient(ing, producto._id)} className="p-1 rounded-lg hover:bg-[#E8D8C3] text-[#E67E22] transition-colors" title="Editar">
                                                 <Pencil size={11} />
                                             </button>
-                                            <button onClick={() => handleDeleteIngredient(producto._id, ing._id)} className="p-1 rounded-lg hover:bg-[#E6A5A5]/30 text-[#C0392B] transition-colors" title="Eliminar">
+                                            <button onClick={() => handleDeleteIngredient(producto._id, ing)} className="p-1 rounded-lg hover:bg-[#E6A5A5]/30 text-[#C0392B] transition-colors" title="Eliminar">
                                                 <Trash2 size={11} />
                                             </button>
                                         </div>
@@ -107,9 +97,7 @@ export const Recipes = () => {
                         )}
 
                         <div className="mt-3 pt-3 border-t border-[#E8D8C3]">
-                            <span className="text-xs text-[#6B6B6B]">
-                                Total insumos: <strong className="text-[#2B2B2B]">{producto.receta?.length ?? 0}</strong>
-                            </span>
+                            <span className="text-xs text-[#6B6B6B]">Total insumos: <strong className="text-[#2B2B2B]">{producto.receta?.length ?? 0}</strong></span>
                         </div>
                     </div>
                 ))}
