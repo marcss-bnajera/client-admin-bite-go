@@ -1,5 +1,6 @@
 import { X, CalendarDays } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
 import { useSaveReservation } from "../hooks/useSaveReservations";
 import { useReservationsStore } from "../store/reservationsStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
@@ -16,56 +17,41 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
     const users = useUsersStore((state) => state.users);
     const getUsers = useUsersStore((state) => state.getUsers);
 
-    const [form, setForm] = useState({
-        userId: "",
-        restaurantId: "",
-        tableId: "",
-        reservationDate: "",
-        peopleCount: "",
-        status: "Confirmed",
-    });
+    const {
+        register,
+        handleSubmit,
+        reset,
+        watch,
+        formState: { errors }
+    } = useForm();
+
+    const restaurantId = watch("restaurantId");
+    const selectedRestaurant = restaurants.find((r) => r._id === restaurantId);
+    const mesasFiltradas = selectedRestaurant?.mesas ?? [];
+    const clientes = users.filter((u) => u.rol === "Cliente");
 
     useEffect(() => {
         if (isOpen) {
             getRestaurants();
             getUsers({ activo: true, limit: 200 });
-            setForm({
+            reset({
                 userId: reservation?.userId?._id || reservation?.userId || "",
                 restaurantId: reservation?.restaurantId?._id || reservation?.restaurantId || "",
                 tableId: reservation?.tableId || "",
                 reservationDate: reservation?.reservationDate
                     ? new Date(reservation.reservationDate).toISOString().slice(0, 16)
                     : "",
-                originalReservationDate: reservation?.reservationDate
-                    ? new Date(reservation.reservationDate).toISOString().slice(0, 16)
-                    : "",
                 peopleCount: reservation?.peopleCount || "",
                 status: reservation?.status || "Confirmed",
             });
         }
-    }, [isOpen, reservation]);
+    }, [isOpen, reservation, reset]);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        if (name === "restaurantId") {
-            setForm((prev) => ({ ...prev, restaurantId: value, tableId: "" }));
-            return;
-        }
-        setForm((prev) => ({ ...prev, [name]: value }));
-    };
-
-    // Mesas del restaurante seleccionado — vienen del restaurantsStore sin llamada extra
-    const selectedRestaurant = restaurants.find((r) => r._id === form.restaurantId);
-    const mesasFiltradas = selectedRestaurant?.mesas ?? [];
-
-    // Solo clientes pueden hacer reservaciones
-    const clientes = users.filter((u) => u.rol === "Cliente");
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const onSubmit = async (data) => {
         try {
-            await saveReservation(form, reservation?._id ?? null);
+            await saveReservation(data, reservation?._id ?? null);
             showSuccess(isEditing ? "Reservación actualizada correctamente" : "Reservación creada correctamente");
+            reset();
             onSaved?.();
             onClose();
         } catch (err) {
@@ -78,6 +64,12 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
     };
 
     if (!isOpen) return null;
+
+    const inputClass = (name) =>
+        `w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none bg-[#F5EFE6]/50 transition-colors ${errors[name]
+            ? "border-red-400 focus:border-red-500"
+            : "border-[#E8D8C3] focus:border-[#E67E22]"
+        }`;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
@@ -98,35 +90,30 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+                <form onSubmit={handleSubmit(onSubmit)} noValidate className="px-6 py-5 space-y-4">
 
                     {/* Cliente */}
                     <div>
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Cliente *</label>
                         <select
-                            name="userId"
-                            value={form.userId}
-                            onChange={handleChange}
-                            required
-                            className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                            className={inputClass("userId")}
+                            {...register("userId", { required: "Selecciona un cliente" })}
                         >
                             <option value="">Seleccionar cliente...</option>
                             {clientes.map((u) => (
                                 <option key={u._id} value={u._id}>{u.nombre} — {u.email}</option>
                             ))}
                         </select>
+                        {errors.userId && <span className="text-red-500 text-xs mt-1 block">{errors.userId.message}</span>}
                     </div>
 
-                    {/* Restaurante — bloqueado al editar */}
+                    {/* Restaurante */}
                     <div>
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante *</label>
                         <select
-                            name="restaurantId"
-                            value={form.restaurantId}
-                            onChange={handleChange}
-                            required
                             disabled={isEditing}
-                            className={`w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
+                            className={`${inputClass("restaurantId")} ${isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
+                            {...register("restaurantId", { required: "Selecciona un restaurante" })}
                         >
                             <option value="">Seleccionar restaurante...</option>
                             {restaurants.map((r) => (
@@ -134,21 +121,19 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                             ))}
                         </select>
                         {isEditing && <p className="text-[10px] text-[#6B6B6B] mt-1">El restaurante no puede modificarse</p>}
+                        {errors.restaurantId && <span className="text-red-500 text-xs mt-1 block">{errors.restaurantId.message}</span>}
                     </div>
 
-                    {/* Mesa — filtrada por restaurante seleccionado */}
+                    {/* Mesa */}
                     <div>
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Mesa *</label>
                         <select
-                            name="tableId"
-                            value={form.tableId}
-                            onChange={handleChange}
-                            required
-                            disabled={!form.restaurantId}
-                            className={`w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${!form.restaurantId ? "opacity-50 cursor-not-allowed" : ""}`}
+                            disabled={!restaurantId}
+                            className={`${inputClass("tableId")} ${!restaurantId ? "opacity-50 cursor-not-allowed" : ""}`}
+                            {...register("tableId", { required: "Selecciona una mesa" })}
                         >
                             <option value="">
-                                {!form.restaurantId
+                                {!restaurantId
                                     ? "Primero selecciona un restaurante"
                                     : mesasFiltradas.length === 0
                                         ? "Sin mesas registradas"
@@ -160,6 +145,7 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                                 </option>
                             ))}
                         </select>
+                        {errors.tableId && <span className="text-red-500 text-xs mt-1 block">{errors.tableId.message}</span>}
                     </div>
 
                     {/* Fecha + Personas */}
@@ -167,27 +153,25 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                         <div>
                             <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Fecha y Hora *</label>
                             <input
-                                name="reservationDate"
-                                value={form.reservationDate}
-                                onChange={handleChange}
-                                required
                                 type="datetime-local"
-                                className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                                className={inputClass("reservationDate")}
+                                {...register("reservationDate", { required: "Ingresa la fecha y hora" })}
                             />
+                            {errors.reservationDate && <span className="text-red-500 text-xs mt-1 block">{errors.reservationDate.message}</span>}
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Personas *</label>
                             <input
-                                name="peopleCount"
-                                value={form.peopleCount}
-                                onChange={handleChange}
-                                required
                                 type="number"
-                                min="1"
-                                max="20"
                                 placeholder="Ej: 4"
-                                className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                                className={inputClass("peopleCount")}
+                                {...register("peopleCount", {
+                                    required: "Ingresa el número de personas",
+                                    min: { value: 1, message: "Mínimo 1 persona" },
+                                    max: { value: 20, message: "Máximo 20 personas" }
+                                })}
                             />
+                            {errors.peopleCount && <span className="text-red-500 text-xs mt-1 block">{errors.peopleCount.message}</span>}
                         </div>
                     </div>
 
@@ -196,10 +180,8 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                         <div>
                             <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Estado *</label>
                             <select
-                                name="status"
-                                value={form.status}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                                className={inputClass("status")}
+                                {...register("status")}
                             >
                                 <option value="Confirmed">Confirmada</option>
                                 <option value="Attended">Atendida</option>
@@ -212,7 +194,7 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                     <div className="flex justify-end gap-3 pt-2 border-t border-[#E8D8C3]">
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={() => { reset(); onClose(); }}
                             className="px-4 py-2 rounded-xl border border-[#E8D8C3] text-sm font-semibold text-[#6B6B6B] hover:bg-[#F5EFE6] transition-colors"
                         >
                             Cancelar

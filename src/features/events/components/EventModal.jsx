@@ -27,8 +27,11 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
         servicios: [""],
     });
 
+    const [formErrors, setFormErrors] = useState({});
+
     useEffect(() => {
         if (isOpen) {
+            setFormErrors({});
             setForm({
                 id_restaurante: resolvedRestauranteId,
                 nombre: event?.nombre || "",
@@ -40,13 +43,16 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
     }, [isOpen, event]);
 
     const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setForm({ ...form, [name]: value });
+        if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: "" }));
     };
 
     const handleFechaChange = (index, value) => {
         const nuevasFechas = [...form.fechas];
         nuevasFechas[index] = value;
         setForm({ ...form, fechas: nuevasFechas });
+        if (formErrors.fechas) setFormErrors((prev) => ({ ...prev, fechas: "" }));
     };
 
     const addFecha = () => setForm({ ...form, fechas: [...form.fechas, ""] });
@@ -63,6 +69,16 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const newErrors = {};
+        if (!form.id_restaurante) newErrors.id_restaurante = "Selecciona un restaurante";
+        if (!form.nombre.trim()) newErrors.nombre = "El nombre es obligatorio";
+        if (form.fechas.every((f) => !f)) newErrors.fechas = "Agrega al menos una fecha";
+
+        if (Object.keys(newErrors).length > 0) {
+            setFormErrors(newErrors);
+            return;
+        }
+
         try {
             const originalRestaurantId = typeof event?.id_restaurante === "object"
                 ? event?.id_restaurante?._id
@@ -72,12 +88,15 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
             showSuccess(isEditing ? "Evento actualizado" : "Evento creado");
             onSaved?.();
             onClose();
-        } catch (error) {
+        } catch {
             showError("Error al guardar el evento");
         }
     };
 
     if (!isOpen) return null;
+
+    const inputClass = (name) =>
+        `w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${formErrors[name] ? "border-red-400" : "border-[#E8D8C3]"}`;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
@@ -96,7 +115,8 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+                <form onSubmit={handleSubmit} noValidate className="px-6 py-5 space-y-4">
+
                     {!restauranteId && (
                         <div>
                             <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante *</label>
@@ -104,27 +124,40 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                                 name="id_restaurante"
                                 value={form.id_restaurante}
                                 onChange={handleChange}
-                                required
-                                className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                                className={inputClass("id_restaurante")}
                             >
                                 <option value="">Seleccionar restaurante...</option>
                                 {restaurants.map((r) => (
                                     <option key={r._id} value={r._id}>{r.nombre}</option>
                                 ))}
                             </select>
+                            {formErrors.id_restaurante && <p className="text-[10px] text-red-500 mt-1">{formErrors.id_restaurante}</p>}
                         </div>
                     )}
 
                     <div>
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Nombre del Evento *</label>
-                        <input name="nombre" value={form.nombre} onChange={handleChange} required placeholder="Ej: Noche de Tapas"
-                            className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors" />
+                        <input
+                            name="nombre"
+                            value={form.nombre}
+                            onChange={handleChange}
+                            placeholder="Ej: Noche de Tapas"
+                            className={inputClass("nombre")}
+                        />
+                        {formErrors.nombre && <p className="text-[10px] text-red-500 mt-1">{formErrors.nombre}</p>}
                     </div>
 
                     <div>
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Descripción</label>
-                        <textarea name="descripcion" value={form.descripcion} onChange={handleChange} rows={2} placeholder="Describe el evento..."
-                            className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors resize-none" />
+                        <textarea
+                            name="descripcion"
+                            value={form.descripcion}
+                            onChange={handleChange}
+                            rows={2}
+                            placeholder="Describe el evento..."
+                            className={inputClass("descripcion")}
+                            style={{ resize: "none" }}
+                        />
                     </div>
 
                     <div>
@@ -137,8 +170,12 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                         <div className="space-y-2">
                             {form.fechas.map((fecha, index) => (
                                 <div key={index} className="flex items-center gap-2">
-                                    <input type="date" value={fecha} onChange={(e) => handleFechaChange(index, e.target.value)} required
-                                        className="flex-1 px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors" />
+                                    <input
+                                        type="date"
+                                        value={fecha}
+                                        onChange={(e) => handleFechaChange(index, e.target.value)}
+                                        className={`flex-1 px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${formErrors.fechas ? "border-red-400" : "border-[#E8D8C3]"}`}
+                                    />
                                     {form.fechas.length > 1 && (
                                         <button type="button" onClick={() => removeFecha(index)} className="p-2 rounded-lg hover:bg-red-50 text-[#C0392B] transition-colors">
                                             <Trash2 size={14} />
@@ -147,6 +184,7 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                                 </div>
                             ))}
                         </div>
+                        {formErrors.fechas && <p className="text-[10px] text-red-500 mt-1">{formErrors.fechas}</p>}
                     </div>
 
                     <div>
@@ -159,8 +197,13 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                         <div className="space-y-2">
                             {form.servicios.map((servicio, index) => (
                                 <div key={index} className="flex items-center gap-2">
-                                    <input type="text" value={servicio} onChange={(e) => handleServicioChange(index, e.target.value)} placeholder="Ej: Música en vivo..."
-                                        className="flex-1 px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors" />
+                                    <input
+                                        type="text"
+                                        value={servicio}
+                                        onChange={(e) => handleServicioChange(index, e.target.value)}
+                                        placeholder="Ej: Música en vivo..."
+                                        className="flex-1 px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
+                                    />
                                     {form.servicios.length > 1 && (
                                         <button type="button" onClick={() => removeServicio(index)} className="p-2 rounded-lg hover:bg-red-50 text-[#C0392B] transition-colors">
                                             <Trash2 size={14} />

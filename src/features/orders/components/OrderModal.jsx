@@ -1,5 +1,6 @@
 import { X, ClipboardList, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
 import { useSaveOrder } from "../hooks/useSaveOrder";
 import { useOrdersStore } from "../store/ordersStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
@@ -35,7 +36,8 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
     const [form, setForm] = useState(() => buildForm(order));
     const [nuevoItem, setNuevoItem] = useState({ id_producto: "", cantidad: 1, notas: "" });
 
-    // Cargar datos al abrir
+    const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm();
+
     useEffect(() => {
         if (isOpen) {
             getRestaurants();
@@ -45,9 +47,16 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
     }, [isOpen]);
 
     useEffect(() => {
-        setForm(buildForm(order));
+        if (!isOpen) return;
+        const built = buildForm(order);
+        setForm(built);
         setNuevoItem({ id_producto: "", cantidad: 1, notas: "" });
-    }, [order, isOpen]);
+        setFormErrors({});
+        reset({
+            id_usuario_cliente: built.id_usuario_cliente,
+            id_restaurante: built.id_restaurante,
+        });
+    }, [isOpen, order?._id]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -56,6 +65,10 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
             return;
         }
         setForm((prev) => ({ ...prev, [name]: value }));
+        if (name === "id_usuario_cliente" || name === "id_restaurante") {
+            setValue(name, value, { shouldValidate: true });
+            if (value) setFormErrors((prev) => ({ ...prev, [name]: "" }));
+        }
     };
 
     const handleAgregarItem = () => {
@@ -84,8 +97,20 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
 
     const total = form.items.reduce((acc, item) => acc + item.precio_historico * item.cantidad, 0);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const [formErrors, setFormErrors] = useState({});
+
+    const onSubmit = async () => {
+        const newErrors = {};
+        if (!form.id_usuario_cliente) newErrors.id_usuario_cliente = "Selecciona un cliente";
+        if (!form.id_restaurante) newErrors.id_restaurante = "Selecciona un restaurante";
+        if (form.items.length === 0) newErrors.items = "Agrega al menos un producto";
+
+        if (Object.keys(newErrors).length > 0) {
+            setFormErrors(newErrors);
+            return;
+        }
+        setFormErrors({});
+
         try {
             await saveOrder({ ...form, total }, order?._id ?? null);
             showSuccess(isEditing ? "Pedido actualizado correctamente" : "Pedido creado correctamente");
@@ -107,12 +132,10 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
         }
     };
 
-    // Filtrar usuarios por rol para cada select
     const clientes = users.filter((u) => u.rol === "Cliente");
     const meseros = users.filter((u) => u.rol === "Mesero");
     const repartidores = users.filter((u) => u.rol === "Repartidor");
 
-    // Filtrar productos por restaurante seleccionado
     const productosDisponibles = form.id_restaurante
         ? products.filter((p) => (p.id_restaurante?._id || p.id_restaurante) === form.id_restaurante && p.activo && p.disponibilidad)
         : products.filter((p) => p.activo && p.disponibilidad);
@@ -140,7 +163,7 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+                <form onSubmit={handleSubmit(onSubmit)} noValidate className="px-6 py-5 space-y-5">
 
                     {/* Aviso pedido inactivo */}
                     {isEditing && !form.activo && (
@@ -162,15 +185,15 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
                                     name="id_usuario_cliente"
                                     value={form.id_usuario_cliente}
                                     onChange={handleChange}
-                                    required
                                     disabled={isEditing}
-                                    className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                    className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${!isEditing && formErrors.id_usuario_cliente ? "border-red-400" : "border-[#E8D8C3]"}`}
                                 >
                                     <option value="">Seleccionar cliente...</option>
                                     {clientes.map((u) => (
                                         <option key={u._id} value={u._id}>{u.nombre}</option>
                                     ))}
                                 </select>
+                                {!isEditing && formErrors.id_usuario_cliente && <p className="text-[10px] text-red-500 mt-1">{formErrors.id_usuario_cliente}</p>}
                             </div>
 
                             {/* Restaurante */}
@@ -180,15 +203,15 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
                                     name="id_restaurante"
                                     value={form.id_restaurante}
                                     onChange={handleChange}
-                                    required
                                     disabled={isEditing}
-                                    className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                    className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${!isEditing && formErrors.id_restaurante ? "border-red-400" : "border-[#E8D8C3]"}`}
                                 >
                                     <option value="">Seleccionar restaurante...</option>
                                     {restaurants.map((r) => (
                                         <option key={r._id} value={r._id}>{r.nombre}</option>
                                     ))}
                                 </select>
+                                {!isEditing && formErrors.id_restaurante && <p className="text-[10px] text-red-500 mt-1">{formErrors.id_restaurante}</p>}
                             </div>
 
                             {/* Tipo de servicio */}
