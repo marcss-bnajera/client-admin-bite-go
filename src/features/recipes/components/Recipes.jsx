@@ -33,15 +33,17 @@ export const Recipes = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* HEADER RESPONSIVO */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-xl md:text-2xl font-extrabold text-[#2B2B2B]">Recetas</h2>
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-[#2B2B2B] tracking-tight">Recetas</h2>
                     <p className="text-sm text-[#6B6B6B] mt-1">Ingredientes e insumos requeridos por producto</p>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2 max-w-md">
-                <Search size={16} className="text-[#6B6B6B] shrink-0" />
+            {/* BARRA DE BÚSQUEDA */}
+            <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2.5 w-full md:max-w-md shadow-sm">
+                <Search size={18} className="text-[#6B6B6B] shrink-0" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -50,45 +52,63 @@ export const Recipes = () => {
                 />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {/* GRID DE RECETAS */}
+            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-5">
                 {loading ? (
-                    <p className="text-[#6B6B6B] text-sm col-span-3 text-center py-10">Cargando recetas...</p>
+                    <p className="text-[#6B6B6B] text-sm col-span-full text-center py-20">Cargando recetas...</p>
                 ) : productsWithRecipes.length === 0 ? (
-                    <p className="text-[#6B6B6B] text-sm col-span-3 text-center py-10">No hay productos registrados</p>
+                    <div className="col-span-full flex flex-col items-center justify-center py-20 text-[#6B6B6B]">
+                        <BookOpen size={48} className="opacity-20 mb-3" />
+                        <p className="text-sm">No hay productos con recetas registradas</p>
+                    </div>
                 ) : productsWithRecipes.map((producto) => (
-                    <div key={producto._id} className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm p-5 hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-[#E67E22]/10 flex items-center justify-center shrink-0">
-                                    <BookOpen size={16} className="text-[#E67E22]" />
+                    <div key={producto._id} className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm p-5 hover:shadow-md transition-all flex flex-col">
+
+                        {/* ENCABEZADO */}
+                        <div className="flex items-center justify-between mb-4 gap-3">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="w-10 h-10 rounded-xl bg-[#E67E22]/10 flex items-center justify-center shrink-0">
+                                    <BookOpen size={18} className="text-[#E67E22]" />
                                 </div>
-                                <div>
-                                    <h3 className="font-extrabold text-[#2B2B2B] text-sm">{producto.nombre}</h3>
-                                    <p className="text-xs text-[#6B6B6B]">{producto.id_restaurante?.nombre ?? "—"}</p>
+                                <div className="min-w-0">
+                                    <h3 className="font-extrabold text-[#2B2B2B] text-sm leading-tight lg:truncate" title={producto.nombre}>
+                                        {producto.nombre}
+                                    </h3>
+                                    <p className="text-[11px] font-medium text-[#6B6B6B] uppercase tracking-wide truncate">
+                                        {producto.id_restaurante?.nombre ?? "Sin restaurante"}
+                                    </p>
                                 </div>
                             </div>
-                            <button onClick={() => handleAddIngredient(producto._id)} className="flex items-center gap-1 text-xs bg-[#E67E22] hover:bg-[#D35400] text-white px-2 py-1.5 rounded-lg font-bold transition-colors">
-                                <Plus size={11} /> Ingrediente
+
+                            <button
+                                onClick={() => handleAddIngredient(producto._id)}
+                                className="flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl bg-[#E67E22] hover:bg-[#D35400] text-white font-bold text-xs transition-all active:scale-95 shrink-0"
+                            >
+                                <Plus size={14} /> <span>Ingrediente</span>
                             </button>
                         </div>
 
                         {producto.receta?.length === 0 ? (
-                            <p className="text-xs text-[#6B6B6B] text-center py-3 border border-dashed border-[#E8D8C3] rounded-xl">Sin ingredientes registrados</p>
+                            <div className="flex-1 flex items-center justify-center text-xs text-[#A0A0A0] italic py-6 border border-dashed border-[#E8D8C3] rounded-xl bg-[#F5F5F5]/30">
+                                Sin ingredientes registrados
+                            </div>
                         ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-2 flex-1">
                                 {producto.receta?.map((ing) => (
-                                    <div key={ing._id} className="flex items-center justify-between bg-[#F5EFE6] rounded-xl px-3 py-2">
-                                        <div className="flex items-center gap-2">
-                                            <FlaskConical size={13} className="text-[#E67E22] shrink-0" />
-                                            <span className="text-xs text-[#2B2B2B] font-medium">{ing.nombre_insumo}</span>
+                                    <div key={ing._id} className="flex items-center justify-between bg-[#F5EFE6] rounded-xl px-3 py-2.5">
+                                        <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                                            <FlaskConical size={14} className="text-[#E67E22] shrink-0" />
+                                            <span className="text-xs text-[#2B2B2B] font-semibold truncate" title={ing.nombre_insumo}>
+                                                {ing.nombre_insumo}
+                                            </span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold text-[#2B2B2B] bg-[#E8D8C3] px-2 py-0.5 rounded-lg">x{ing.cantidad_requerida}</span>
-                                            <button onClick={() => handleEditIngredient(ing, producto._id)} className="p-1 rounded-lg hover:bg-[#E8D8C3] text-[#E67E22] transition-colors" title="Editar">
-                                                <Pencil size={11} />
+                                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                                            <span className="text-[10px] font-black text-[#8C6D4A] bg-[#E8D8C3]/60 px-2 py-0.5 rounded-md">x{ing.cantidad_requerida}</span>
+                                            <button onClick={() => handleEditIngredient(ing, producto._id)} className="p-1.5 rounded-lg hover:bg-[#E8D8C3] text-[#E67E22] transition-colors" title="Editar">
+                                                <Pencil size={13} />
                                             </button>
-                                            <button onClick={() => handleDeleteIngredient(producto._id, ing)} className="p-1 rounded-lg hover:bg-[#E6A5A5]/30 text-[#C0392B] transition-colors" title="Eliminar">
-                                                <Trash2 size={11} />
+                                            <button onClick={() => handleDeleteIngredient(producto._id, ing)} className="p-1.5 rounded-lg hover:bg-[#E6A5A5]/30 text-[#C0392B] transition-colors" title="Eliminar">
+                                                <Trash2 size={13} />
                                             </button>
                                         </div>
                                     </div>
@@ -96,8 +116,9 @@ export const Recipes = () => {
                             </div>
                         )}
 
-                        <div className="mt-3 pt-3 border-t border-[#E8D8C3]">
-                            <span className="text-xs text-[#6B6B6B]">Total insumos: <strong className="text-[#2B2B2B]">{producto.receta?.length ?? 0}</strong></span>
+                        <div className="mt-4 pt-4 border-t border-[#E8D8C3]/60 flex justify-between items-center">
+                            <span className="text-[11px] font-medium text-[#6B6B6B]">Total insumos:</span>
+                            <span className="text-xs font-bold text-[#2B2B2B] bg-[#E8D8C3]/30 px-2 py-0.5 rounded-lg">{producto.receta?.length ?? 0}</span>
                         </div>
                     </div>
                 ))}

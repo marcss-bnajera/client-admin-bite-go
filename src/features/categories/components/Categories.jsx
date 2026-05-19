@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Pencil, TagIcon, Store, Filter, Tags } from "lucide-react";
+import { Plus, Search, Pencil, TagIcon, Store, Filter, Tags, FileText } from "lucide-react";
 import { CategoryModal } from "./CategoryModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
 import { useCategories } from "../hooks/useCategories";
@@ -69,7 +69,9 @@ export const Categories = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-full px-1 sm:px-0">
+
+            {/* HEADER */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 className="text-xl md:text-2xl font-extrabold text-[#2B2B2B]">Categorías</h2>
@@ -77,14 +79,16 @@ export const Categories = () => {
                 </div>
                 <button
                     onClick={handleNew}
-                    className="flex items-center gap-2 bg-[#C0392B] hover:bg-[#A93226] text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors self-start sm:self-auto"
+                    className="flex items-center gap-2 bg-[#C0392B] hover:bg-[#A93226] text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors self-start sm:self-auto shrink-0"
                 >
                     <Plus size={16} /> Nueva Categoría
                 </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2 flex-1">
+            {/* FILTROS */}
+            <div className="flex flex-col sm:flex-row gap-2 pb-4 border-b border-[#E8D8C3] w-full">
+                {/* FILA 1: Input de Búsqueda */}
+                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 w-full sm:flex-1 sm:max-w-xs shadow-sm focus-within:border-[#E67E22] transition-colors shrink-0">
                     <Search size={16} className="text-[#6B6B6B] shrink-0" />
                     <input
                         value={search}
@@ -93,36 +97,106 @@ export const Categories = () => {
                         placeholder="Buscar categoría o restaurante..."
                     />
                 </div>
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2">
-                    <Filter size={16} className="text-[#6B6B6B] shrink-0" />
-                    <select
-                        value={filterRestaurante}
-                        onChange={handleRestauranteChange}
-                        className="outline-none text-sm bg-transparent text-[#6B6B6B]"
-                    >
-                        <option value="">Todos los restaurantes</option>
-                        {restaurantes.map(r => <option key={r._id} value={r._id}>{r.nombre}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2">
-                    <select
-                        value={filterActivo}
-                        onChange={handleActivoChange}
-                        className="outline-none text-sm bg-transparent text-[#6B6B6B]"
-                    >
-                        <option value="">Todas</option>
-                        <option value="activo">Activas</option>
-                        <option value="inactivo">Inactivas</option>
-                    </select>
+
+                {/* FILA 2: Contenedor de Selects */}
+                <div className="flex flex-row gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 shadow-sm flex-1 sm:flex-none sm:min-w-[180px] focus-within:border-[#E67E22] transition-colors min-w-0">
+                        <Filter size={16} className="text-[#6B6B6B] shrink-0" />
+                        <select
+                            value={filterRestaurante}
+                            onChange={handleRestauranteChange}
+                            className="outline-none text-sm bg-transparent text-[#6B6B6B] cursor-pointer w-full pr-1 truncate text-xs sm:text-sm line-clamp-1"
+                        >
+                            <option value="">Todos los restaurantes</option>
+                            {restaurantes.map(r => <option key={r._id} value={r._id} className="text-xs sm:text-sm line-clamp-1 truncate">{r.nombre}</option>)}
+                        </select>
+                    </div>
+
+                    {/* Filtro Activo */}
+                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 shadow-sm flex-1 sm:flex-none sm:min-w-[120px] focus-within:border-[#E67E22] transition-colors min-w-0">
+                        <select
+                            value={filterActivo}
+                            onChange={handleActivoChange}
+                            className="outline-none text-sm bg-transparent text-[#6B6B6B] cursor-pointer w-full truncate text-xs sm:text-sm"
+                        >
+                            <option value="">Todas</option>
+                            <option value="activo">Activas</option>
+                            <option value="inactivo">Inactivas</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-[#E8D8C3] overflow-x-auto">
-                <table className="w-full text-sm min-w-[540px]">
+            {/* VISTA EN TARJETAS PARA DISPOSITIVOS MÓVILES (Móvil hasta lg:hidden) */}
+            <div className="block lg:hidden space-y-3">
+                {loading ? (
+                    <div className="bg-white p-6 rounded-2xl border border-[#E8D8C3] text-center text-[#6B6B6B] text-sm font-medium">Cargando categorías...</div>
+                ) : paginated.length === 0 ? (
+                    <div className="bg-white p-6 rounded-2xl border border-[#E8D8C3] text-center text-[#6B6B6B] text-sm font-medium">No se encontraron categorías</div>
+                ) : paginated.map((cat) => (
+                    <div
+                        key={cat._id}
+                        className={`bg-white rounded-2xl p-4 border border-[#E8D8C3] shadow-sm space-y-3 transition-colors ${!cat.activo ? "opacity-60" : ""}`}
+                    >
+                        {/* Cabecera de la Card: Nombre y Estado */}
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-[#E67E22]/10 flex items-center justify-center shrink-0">
+                                    <Tags size={14} className="text-[#E67E22]" />
+                                </div>
+                                <span className="font-bold text-[#2B2B2B] truncate text-sm">{cat.nombre}</span>
+                            </div>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${cat.activo ? "bg-[#A8D5BA] text-green-900" : "bg-[#E6A5A5] text-red-900"}`}>
+                                {cat.activo ? "Activa" : "Inactiva"}
+                            </span>
+                        </div>
+
+                        {/* Detalles de la Card */}
+                        <div className="space-y-2 text-xs border-t border-b border-[#E8D8C3]/60 py-2.5">
+                            <div>
+                                <p className="text-[#A0A0A0] font-medium mb-0.5">Restaurante</p>
+                                <div className="flex items-center gap-1.5 text-[#6B6B6B]">
+                                    <Store size={12} className="shrink-0 text-[#A0A0A0]" />
+                                    <span className="truncate">{cat.id_restaurante?.nombre ?? "—"}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-[#A0A0A0] font-medium mb-0.5">Descripción</p>
+                                <div className="flex items-start gap-1.5 text-[#6B6B6B]">
+                                    <FileText size={12} className="shrink-0 mt-0.5 text-[#A0A0A0]" />
+                                    <p className="line-clamp-2 text-balance">{cat.descripcion || "Sin descripción disponible"}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Botones de Acción */}
+                        <div className="flex items-center justify-end gap-1.5 pt-1">
+                            <button
+                                onClick={() => handleEdit(cat)}
+                                className="p-2 rounded-xl bg-[#F5EFE6] text-[#E67E22] hover:bg-[#E8D8C3] transition-colors"
+                                title="Editar"
+                            >
+                                <Pencil size={15} />
+                            </button>
+                            <button
+                                onClick={() => handleToggleActivo(cat)}
+                                className={`p-2 rounded-xl transition-colors ${cat.activo ? "bg-red-50 text-[#C0392B] hover:bg-red-100" : "bg-green-50 text-green-700 hover:bg-green-100"}`}
+                                title={cat.activo ? "Desactivar categoría" : "Activar categoría"}
+                            >
+                                <TagIcon size={15} className={!cat.activo ? "text-green-600" : ""} />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* VISTA EN TABLA PARA PANTALLAS GRANDES (Oculta hasta lg:block) */}
+            <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-[#E8D8C3] overflow-hidden">
+                <table className="w-full text-sm table-auto">
                     <thead className="bg-[#3A2E2A] text-white">
                         <tr>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Categoría</th>
-                            <th className="text-left px-6 py-4 font-bold tracking-wide hidden md:table-cell">Descripción</th>
+                            <th className="text-left px-6 py-4 font-bold tracking-wide">Descripción</th>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Restaurante</th>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Estado</th>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Acciones</th>
@@ -136,9 +210,9 @@ export const Categories = () => {
                         ) : paginated.map((cat, index) => (
                             <tr
                                 key={cat._id}
-                                className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9] transition-colors ${index % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/50"}`}
+                                className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9] transition-colors ${!cat.activo ? "opacity-60" : ""} ${index % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/50"}`}
                             >
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-2">
                                         <div className="w-7 h-7 rounded-lg bg-[#E67E22]/10 flex items-center justify-center shrink-0">
                                             <Tags size={13} className="text-[#E67E22]" />
@@ -146,21 +220,21 @@ export const Categories = () => {
                                         <span className="font-semibold text-[#2B2B2B]">{cat.nombre}</span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-[#6B6B6B] max-w-xs hidden md:table-cell">
+                                <td className="px-6 py-4 text-[#6B6B6B] max-w-xs">
                                     <span className="line-clamp-1">{cat.descripcion || "—"}</span>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-2 text-[#6B6B6B]">
                                         <Store size={13} className="shrink-0" />
                                         {cat.id_restaurante?.nombre ?? "—"}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${cat.activo ? "bg-[#A8D5BA] text-green-900" : "bg-[#E6A5A5] text-red-900"}`}>
                                         {cat.activo ? "Activa" : "Inactiva"}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => handleEdit(cat)}
@@ -184,13 +258,16 @@ export const Categories = () => {
                 </table>
             </div>
 
-            <Pagination
-                currentPage={page}
-                totalPages={totalPages || 1}
-                total={filtered.length}
-                itemsShown={paginated.length}
-                onPageChange={setPage}
-            />
+            {/* SECCIÓN DE PAGINACIÓN ADAPTATIVA */}
+            <div className="w-full py-1">
+                <Pagination
+                    currentPage={page}
+                    totalPages={totalPages || 1}
+                    total={filtered.length}
+                    itemsShown={paginated.length}
+                    onPageChange={setPage}
+                />
+            </div>
 
             <CategoryModal
                 isOpen={modalOpen}

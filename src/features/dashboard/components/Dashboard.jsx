@@ -5,11 +5,10 @@ import {
     Clock, ChevronRight, Activity
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { useOrders } from "../../orders/hooks/useOrders";
-import { useProducts } from "../../products/hooks/useProducts";
-import { useReservations } from "../../reservations/hooks/useReservations";
-import { useUsers } from "../../users/hooks/useUsers";
-import { useRestaurants } from "../../restaurants/hooks/useRestaurants";
+import { useOrdersStore } from "../../orders/store/ordersStore";
+import { useReservationsStore } from "../../reservations/store/reservationsStore";
+import { useProductsStore } from "../../products/store/productsStore";
+import { useUsersStore } from "../../users/store/usersStore";
 import { useInventoryStore } from "../../inventory/store/inventoryStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 
@@ -36,11 +35,12 @@ const formatTime = (iso) => {
 };
 
 export const Dashboard = () => {
-    const { orders } = useOrders();
-    const { products } = useProducts();
-    const { reservations } = useReservations();
-    const { users } = useUsers();
-    const { restaurants } = useRestaurants();
+    const orders = useOrdersStore((state) => state.orders);
+    const reservations = useReservationsStore((state) => state.reservations);
+    console.log(reservations[0]?.reservationDate);
+    const products = useProductsStore((state) => state.products);
+    const users = useUsersStore((state) => state.users);
+    const restaurants = useRestaurantsStore((state) => state.restaurants);
     const alerts = useInventoryStore((state) => state.alerts);
     const getLowStockAlerts = useInventoryStore((state) => state.getLowStockAlerts);
     const restaurantsList = useRestaurantsStore((state) => state.restaurants);
@@ -99,85 +99,133 @@ export const Dashboard = () => {
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-full px-1 sm:px-0 overflow-x-hidden">
 
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white sm:bg-transparent p-4 sm:p-0 rounded-2xl border border-[#E8D8C3] sm:border-0 shadow-sm sm:shadow-none">
                 <div>
                     <h2 className="text-xl md:text-2xl font-extrabold text-[#2B2B2B]">Dashboard</h2>
                     <p className="text-sm text-[#6B6B6B] mt-1">Resumen general de operaciones — Bite & Go</p>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-[#6B6B6B] bg-white border border-[#E8D8C3] px-3 py-2 rounded-xl">
-                    <Activity size={13} className="text-green-500" />
+                <div className="flex items-center gap-2 text-xs text-[#6B6B6B] bg-white border border-[#E8D8C3] px-3 py-2 rounded-xl self-start sm:self-auto w-full sm:w-auto justify-center sm:justify-start shadow-sm sm:shadow-none font-medium shrink-0">
+                    <Activity size={13} className="text-green-500 shrink-0 animate-pulse" />
                     Sistema operando con normalidad
                 </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
                 {stats.map((stat) => {
                     const Icon = stat.icon;
                     return (
-                        <div key={stat.label} className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm p-4 md:p-5 hover:shadow-md transition-shadow">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.bg}`}>
-                                    <Icon size={17} className="text-white" />
+                        <div key={stat.label} className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm p-4 md:p-5 hover:shadow-md transition-shadow flex flex-col justify-between min-w-0">
+                            <div>
+                                <div className="flex items-start justify-between mb-4 gap-2">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${stat.bg}`}>
+                                        <Icon size={17} className="text-white" />
+                                    </div>
+                                    <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg shrink-0 ${stat.up ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                                        {stat.up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                                        <span className="truncate">{stat.trend}</span>
+                                    </div>
                                 </div>
-                                <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${stat.up ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                                    {stat.up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                                    {stat.trend}
-                                </div>
+                                <p className="text-2xl md:text-3xl font-extrabold text-[#2B2B2B] truncate">{stat.value}</p>
                             </div>
-                            <p className="text-2xl md:text-3xl font-extrabold text-[#2B2B2B]">{stat.value}</p>
-                            <p className="text-xs text-[#6B6B6B] mt-1 font-medium">{stat.label}</p>
-                            <p className="text-[10px] text-[#A0A0A0] mt-0.5">{stat.trendLabel}</p>
+                            <div className="mt-2 pt-2 border-t border-[#E8D8C3]/40">
+                                <p className="text-xs text-[#6B6B6B] font-medium truncate">{stat.label}</p>
+                                <p className="text-[10px] text-[#A0A0A0] mt-0.5 font-medium tracking-wide uppercase">{stat.trendLabel}</p>
+                            </div>
                         </div>
                     );
                 })}
             </div>
 
             {/* Reservaciones + pedidos recientes */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
-                {/* Pedidos recientes — ocupa 2 cols */}
-                <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E8D8C3] shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-[#E8D8C3] flex items-center justify-between">
-                        <div>
-                            <h3 className="font-extrabold text-[#2B2B2B]">Pedidos Recientes</h3>
+                {/* Pedidos recientes */}
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E8D8C3] shadow-sm overflow-hidden max-w-full">
+                    <div className="px-4 py-4 md:px-6 border-b border-[#E8D8C3] flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                            <h3 className="font-extrabold text-[#2B2B2B] text-base md:text-lg truncate">Pedidos Recientes</h3>
                             <p className="text-xs text-[#6B6B6B] mt-0.5">Últimas órdenes</p>
                         </div>
-                        <NavLink to="/dashboard/pedidos" className="text-xs font-bold text-[#E67E22] hover:underline flex items-center gap-1">
+                        <NavLink to="/dashboard/pedidos" className="text-xs font-bold text-[#E67E22] hover:underline flex items-center gap-1 shrink-0 bg-[#E67E22]/10 px-2.5 py-1.5 rounded-lg sm:bg-transparent sm:p-0">
                             Ver todos <ChevronRight size={12} />
                         </NavLink>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm min-w-[520px]">
+
+                    {/* VISTA MÓVIL DE PEDIDOS RECIENTES (Oculta en md:) */}
+                    <div className="block md:hidden divide-y divide-[#E8D8C3]/60">
+                        {pedidosRecientes.length === 0 ? (
+                            <div className="px-4 py-8 text-center text-[#6B6B6B] text-sm">
+                                Sin pedidos recientes
+                            </div>
+                        ) : pedidosRecientes.map((p) => {
+                            const cfg = estadoConfig[p.estado] ?? estadoConfig.Pendiente;
+                            return (
+                                <div key={p._id} className="p-4 space-y-2.5 hover:bg-[#F2E6D9]/30 transition-colors">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="font-bold text-[#2B2B2B] text-sm truncate">{p.id_usuario_cliente?.nombre || "—"}</span>
+                                        <span className="font-extrabold text-[#2B2B2B] text-sm shrink-0">Q{p.total?.toFixed(2) ?? "0.00"}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 text-xs text-[#6B6B6B]">
+                                        <span className="truncate max-w-[60%]">{p.id_restaurante?.nombre || "—"}</span>
+                                        <div className="flex items-center gap-1 shrink-0 text-[11px]">
+                                            <Clock size={11} className="text-[#A0A0A0]" />
+                                            {formatTime(p.createdAt)}
+                                        </div>
+                                    </div>
+                                    <div className="pt-0.5">
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${cfg.cls}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                                            {p.estado}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* VISTA DESKTOP DE PEDIDOS RECIENTES (Oculta en móvil) */}
+                    <div className="hidden md:block overflow-x-auto w-full">
+                        <table className="w-full text-sm table-auto">
                             <thead className="bg-[#F5EFE6]">
                                 <tr>
-                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs">Cliente</th>
-                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs">Restaurante</th>
-                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs">Estado</th>
-                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs">Total</th>
-                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs">Tiempo</th>
+                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs tracking-wider">Cliente</th>
+                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs tracking-wider">Restaurante</th>
+                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs tracking-wider">Estado</th>
+                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs tracking-wider">Total</th>
+                                    <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] text-xs tracking-wider">Tiempo</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {pedidosRecientes.length === 0 ? (
-                                    <tr><td colSpan={5} className="px-6 py-8 text-center text-[#6B6B6B] text-sm">Sin pedidos recientes</td></tr>
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-8 text-center text-[#6B6B6B] text-sm">
+                                            Sin pedidos recientes
+                                        </td>
+                                    </tr>
                                 ) : pedidosRecientes.map((p, index) => {
                                     const cfg = estadoConfig[p.estado] ?? estadoConfig.Pendiente;
                                     return (
                                         <tr key={p._id} className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9] transition-colors ${index % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/50"}`}>
-                                            <td className="px-6 py-3 font-medium text-[#2B2B2B]">{p.id_usuario_cliente?.nombre || "—"}</td>
-                                            <td className="px-6 py-3 text-[#6B6B6B] text-xs">{p.id_restaurante?.nombre || "—"}</td>
-                                            <td className="px-6 py-3">
+                                            <td className="px-6 py-3 font-medium text-[#2B2B2B] truncate max-w-[140px]">
+                                                {p.id_usuario_cliente?.nombre || "—"}
+                                            </td>
+                                            <td className="px-6 py-3 text-[#6B6B6B] text-xs truncate max-w-[150px]">
+                                                {p.id_restaurante?.nombre || "—"}
+                                            </td>
+                                            <td className="px-6 py-3 whitespace-nowrap">
                                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${cfg.cls}`}>
                                                     <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                                                     {p.estado}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-3 font-bold text-[#2B2B2B]">Q{p.total?.toFixed(2) ?? "0.00"}</td>
-                                            <td className="px-6 py-3">
+                                            <td className="px-6 py-3 font-bold text-[#2B2B2B] whitespace-nowrap">
+                                                Q{p.total?.toFixed(2) ?? "0.00"}
+                                            </td>
+                                            <td className="px-6 py-3 whitespace-nowrap">
                                                 <div className="flex items-center gap-1 text-xs text-[#6B6B6B]">
                                                     <Clock size={11} />{formatTime(p.createdAt)}
                                                 </div>
@@ -191,31 +239,34 @@ export const Dashboard = () => {
                 </div>
 
                 {/* Reservaciones hoy */}
-                <div className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-extrabold text-[#2B2B2B]">Reservas Hoy</h3>
-                        <NavLink to="/dashboard/reservaciones" className="text-xs font-bold text-[#E67E22] hover:underline flex items-center gap-1">
+                <div className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm p-4 md:p-5 max-w-full">
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                        <div className="min-w-0">
+                            <h3 className="font-extrabold text-[#2B2B2B] text-base md:text-lg truncate">Reservas Hoy</h3>
+                        </div>
+                        <NavLink to="/dashboard/reservaciones" className="text-xs font-bold text-[#E67E22] hover:underline flex items-center gap-1 shrink-0 bg-[#E67E22]/10 px-2.5 py-1.5 rounded-lg sm:bg-transparent sm:p-0">
                             Ver todas <ChevronRight size={12} />
                         </NavLink>
                     </div>
+
                     {reservacionesProximas.length === 0 ? (
-                        <p className="text-sm text-[#6B6B6B] text-center py-6">Sin reservaciones hoy</p>
+                        <p className="text-sm text-[#6B6B6B] text-center py-8">Sin reservaciones hoy</p>
                     ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-3 divide-y divide-[#E8D8C3]/30 sm:divide-y-0">
                             {reservacionesProximas.map((r, i) => (
-                                <div key={i} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#F5EFE6] transition-colors">
+                                <div key={i} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#F5EFE6] transition-colors min-w-0 pt-3 sm:pt-2 first:pt-2">
                                     <div className="w-8 h-8 rounded-full bg-[#3A2E2A] flex items-center justify-center text-white text-xs font-bold shrink-0">
                                         {r.userId?.nombre?.charAt(0) ?? "?"}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-xs font-bold text-[#2B2B2B] truncate">{r.userId?.nombre || "—"}</p>
-                                        <p className="text-[10px] text-[#6B6B6B]">{r.restaurantId?.nombre || "—"} · {r.peopleCount} personas</p>
+                                        <p className="text-[10px] text-[#6B6B6B] truncate">{r.restaurantId?.nombre || "—"} · {r.peopleCount} pers.</p>
                                     </div>
-                                    <div className="text-right shrink-0">
-                                        <p className="text-xs font-extrabold text-[#E67E22]">
+                                    <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
+                                        <p className="text-xs font-extrabold text-[#E67E22] whitespace-nowrap">
                                             {new Date(r.reservationDate).toLocaleTimeString("es-GT", { hour: "2-digit", minute: "2-digit" })}
                                         </p>
-                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${reservaConfig[r.status]?.cls ?? ""}`}>
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${reservaConfig[r.status]?.cls ?? ""}`}>
                                             {reservaConfig[r.status]?.label ?? r.status}
                                         </span>
                                     </div>
@@ -228,10 +279,12 @@ export const Dashboard = () => {
 
             {/* Alertas de inventario */}
             {alerts.length > 0 && (
-                <div className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm p-5">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-extrabold text-[#2B2B2B]">Alertas de Inventario</h3>
-                        <NavLink to="/dashboard/inventario" className="text-xs font-bold text-[#E67E22] hover:underline flex items-center gap-1">
+                <div className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm p-4 md:p-5 max-w-full">
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                        <div className="min-w-0">
+                            <h3 className="font-extrabold text-[#2B2B2B] text-base md:text-lg truncate">Alertas de Inventario</h3>
+                        </div>
+                        <NavLink to="/dashboard/inventario" className="text-xs font-bold text-[#E67E22] hover:underline flex items-center gap-1 shrink-0 bg-[#E67E22]/10 px-2.5 py-1.5 rounded-lg sm:bg-transparent sm:p-0">
                             Ir a inventario <ChevronRight size={12} />
                         </NavLink>
                     </div>
@@ -239,14 +292,14 @@ export const Dashboard = () => {
                         {alerts.slice(0, 4).map((ins) => {
                             const pct = Math.min((ins.stock_actual / ins.stock_minimo) * 100, 100);
                             return (
-                                <div key={ins._id} className="flex items-center gap-4 p-3 bg-[#E6A5A5]/15 border border-[#E6A5A5] rounded-xl">
+                                <div key={ins._id} className="flex items-center gap-4 p-3 bg-[#E6A5A5]/15 border border-[#E6A5A5] rounded-xl min-w-0">
                                     <AlertTriangle size={16} className="text-[#C0392B] shrink-0" />
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <p className="text-sm font-bold text-[#2B2B2B]">{ins.nombre_insumo}</p>
-                                            <p className="text-xs text-[#C0392B] font-bold">{ins.stock_actual}/{ins.stock_minimo}</p>
+                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                            <p className="text-sm font-bold text-[#2B2B2B] truncate">{ins.nombre_insumo}</p>
+                                            <p className="text-xs text-[#C0392B] font-bold shrink-0">{ins.stock_actual}/{ins.stock_minimo}</p>
                                         </div>
-                                        <div className="w-full bg-[#E8D8C3] rounded-full h-1.5">
+                                        <div className="w-full bg-[#E8D8C3] rounded-full h-1.5 overflow-hidden">
                                             <div className="bg-[#C0392B] h-1.5 rounded-full" style={{ width: `${pct}%` }} />
                                         </div>
                                     </div>

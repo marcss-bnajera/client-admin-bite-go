@@ -55,7 +55,7 @@ export const ItemModal = ({ isOpen, onClose, item = null, orderId = null, onSave
         try {
             await saveItem(form, orderId, item?._id ?? null);
             showSuccess(isEditing ? "Item actualizado correctamente" : "Item agregado correctamente");
-            onSaved?.();
+            await onSaved?.();
             onClose();
         } catch {
             showError("Error al guardar el item");

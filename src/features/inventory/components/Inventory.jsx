@@ -68,29 +68,29 @@ export const Inventory = () => {
         }
     };
 
-    const selectClass = "outline-none text-sm bg-transparent text-[#6B6B6B]";
+    const selectClass = "outline-none text-sm bg-transparent text-[#6B6B6B] w-full cursor-pointer";
 
     return (
         <div className="space-y-6">
 
             {/* HEADER */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-xl md:text-2xl font-extrabold text-[#2B2B2B]">Inventario de Insumos</h2>
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-[#2B2B2B] tracking-tight">Inventario de Insumos</h2>
                     <p className="text-sm text-[#6B6B6B] mt-1">Control de stock y alertas por restaurante</p>
                 </div>
                 <button
                     onClick={handleNew}
                     disabled={!filterRestaurant}
-                    className="flex items-center gap-2 bg-[#C0392B] hover:bg-[#A93226] text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center gap-2 bg-[#C0392B] hover:bg-[#A93226] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 shrink-0"
                 >
                     <Plus size={16} /> Nuevo Insumo
                 </button>
             </div>
 
-            {/* FILTROS */}
-            <div className="flex flex-wrap gap-2 items-center pb-4 border-b border-[#E8D8C3]">
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9">
+            {/* FILTROS RESPONSIVOS */}
+            <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 items-center pb-5 border-b border-[#E8D8C3]">
+                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-full sm:w-auto min-w-[200px]">
                     <Filter size={14} className="text-[#6B6B6B] shrink-0" />
                     <select value={filterRestaurant} onChange={(e) => { setFilterRestaurant(e.target.value); setPage(1); }} className={selectClass}>
                         <option value="">Seleccionar restaurante...</option>
@@ -99,15 +99,17 @@ export const Inventory = () => {
                         ))}
                     </select>
                 </div>
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9">
+
+                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-full sm:w-40">
                     <select value={filterActivo} onChange={(e) => { setFilterActivo(e.target.value); setPage(1); }} className={selectClass}>
                         <option value="activo">Activos</option>
                         <option value="inactivo">Inactivos</option>
                         <option value="">Todos</option>
                     </select>
                 </div>
+
                 {filterRestaurant && (
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9 flex-1 min-w-[160px] max-w-xs">
+                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-full sm:flex-1 sm:max-w-xs">
                         <Search size={14} className="text-[#6B6B6B] shrink-0" />
                         <input
                             value={search}
@@ -119,67 +121,131 @@ export const Inventory = () => {
                 )}
             </div>
 
-            {/* ALERTA STOCK BAJO */}
+            {/* ALERTA STOCK BAJO RESPONSIVA */}
             {alerts.length > 0 && filterActivo !== "inactivo" && (
-                <div className="flex items-center gap-3 bg-[#E6A5A5]/30 border border-[#E6A5A5] rounded-xl px-4 py-3">
-                    <AlertTriangle size={18} className="text-[#C0392B] shrink-0" />
-                    <p className="text-sm font-semibold text-[#C0392B]">
+                <div className="flex items-start sm:items-center gap-3 bg-[#E6A5A5]/30 border border-[#E6A5A5] rounded-xl px-4 py-3.5">
+                    <AlertTriangle size={18} className="text-[#C0392B] shrink-0 mt-0.5 sm:mt-0" />
+                    <p className="text-sm font-semibold text-[#C0392B] leading-snug">
                         {alerts.length} insumo{alerts.length > 1 ? "s" : ""} por debajo del stock mínimo:{" "}
-                        <span className="font-extrabold">{alerts.map((i) => i.nombre_insumo).join(", ")}</span>
+                        <span className="font-extrabold break-words">{alerts.map((i) => i.nombre_insumo).join(", ")}</span>
                     </p>
                 </div>
             )}
 
             {!filterRestaurant ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-2 text-[#6B6B6B]">
-                    <Filter size={32} className="opacity-40" />
-                    <p className="text-sm">Seleccioná un restaurante para ver su inventario</p>
+                <div className="flex flex-col items-center justify-center py-24 gap-3 text-[#6B6B6B]">
+                    <Filter size={36} className="opacity-40 animate-pulse" />
+                    <p className="text-sm font-medium">Seleccioná un restaurante para ver su inventario</p>
                 </div>
             ) : (
                 <>
-                    <div className="bg-white rounded-2xl shadow-sm border border-[#E8D8C3] overflow-x-auto">
-                        <table className="w-full text-sm min-w-[600px]">
+                    {/*VISTA EN CELULARES Y TABLETS */}
+                    <div className="block lg:hidden space-y-3">
+                        {loading ? (
+                            <div className="bg-white rounded-2xl p-8 text-center border border-[#E8D8C3] text-[#6B6B6B] text-sm font-medium">
+                                Cargando inventario...
+                            </div>
+                        ) : paginated.length === 0 ? (
+                            <div className="bg-white rounded-2xl p-8 text-center border border-[#E8D8C3] text-[#6B6B6B] text-sm font-medium">
+                                No hay insumos para mostrar
+                            </div>
+                        ) : (
+                            paginated.map((insumo) => {
+                                const bajo = insumo.stock_actual <= insumo.stock_minimo;
+                                return (
+                                    <div
+                                        key={insumo._id}
+                                        className={`bg-white rounded-2xl border border-[#E8D8C3] p-4 space-y-3.5 shadow-sm transition-all ${!insumo.activo ? "opacity-60" : ""}`}
+                                    >
+                                        {/* Nombre y Badge de Estado */}
+                                        <div className="flex items-start justify-between gap-2">
+                                            <h4 className="font-bold text-[#2B2B2B] text-base leading-tight">{insumo.nombre_insumo}</h4>
+                                            <span className={`px-2.5 py-0.5 shrink-0 rounded-full text-[11px] font-bold tracking-wide uppercase ${!insumo.activo ? "bg-[#D6D6D6] text-gray-600" : bajo ? "bg-[#E6A5A5] text-red-900" : "bg-[#A8D5BA] text-green-900"}`}>
+                                                {!insumo.activo ? "Inactivo" : bajo ? "Stock bajo" : "Normal"}
+                                            </span>
+                                        </div>
+
+                                        {/* Grilla de Valores de Stocks */}
+                                        <div className="grid grid-cols-2 gap-3 bg-[#F5EFE6]/30 border border-[#E8D8C3]/50 rounded-xl p-3 text-sm">
+                                            <div>
+                                                <p className="text-[#6B6B6B] font-medium text-xs">Stock Actual</p>
+                                                <p className={`text-xl font-extrabold mt-0.5 ${bajo && insumo.activo ? "text-[#C0392B]" : "text-[#2B2B2B]"}`}>
+                                                    {insumo.stock_actual}
+                                                </p>
+                                            </div>
+                                            <div className="border-l border-[#E8D8C3] pl-4">
+                                                <p className="text-[#6B6B6B] font-medium text-xs">Stock Mínimo</p>
+                                                <p className="text-base font-bold text-[#2B2B2B] mt-1">
+                                                    {insumo.stock_minimo}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Botonera de Acciones Adaptadas al pulgar */}
+                                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#E8D8C3]/40">
+                                            <button
+                                                onClick={() => handleEdit(insumo)}
+                                                className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl bg-[#F5EFE6] text-[#E67E22] font-bold text-xs transition-colors active:scale-95"
+                                            >
+                                                <Pencil size={13} /> Editar
+                                            </button>
+                                            <button
+                                                onClick={() => handleToggle(insumo)}
+                                                className={`flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl font-bold text-xs transition-colors active:scale-95 ${insumo.activo ? "bg-red-50 text-[#C0392B]" : "bg-[#E1F5EE] text-[#0F6E56]"}`}
+                                            >
+                                                <PowerOff size={13} /> {insumo.activo ? "Desactivar" : "Reactivar"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    {/*VISTA EN ESCRITORIO */}
+                    <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-[#E8D8C3] overflow-hidden">
+                        <table className="w-full text-sm border-collapse">
                             <thead className="bg-[#3A2E2A] text-white">
                                 <tr>
                                     <th className="text-left px-6 py-4 font-bold tracking-wide">Insumo</th>
-                                    <th className="text-left px-6 py-4 font-bold tracking-wide">Stock Actual</th>
-                                    <th className="text-left px-6 py-4 font-bold tracking-wide">Stock Mínimo</th>
-                                    <th className="text-left px-6 py-4 font-bold tracking-wide">Estado Stock</th>
-                                    <th className="text-left px-6 py-4 font-bold tracking-wide">Acciones</th>
+                                    <th className="text-left px-6 py-4 font-bold tracking-wide w-40">Stock Actual</th>
+                                    <th className="text-left px-6 py-4 font-bold tracking-wide w-40">Stock Mínimo</th>
+                                    <th className="text-left px-6 py-4 font-bold tracking-wide w-44">Estado Stock</th>
+                                    <th className="text-center px-6 py-4 font-bold tracking-wide w-32">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr><td colSpan={5} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">Cargando inventario...</td></tr>
+                                    <tr><td colSpan={5} className="px-6 py-12 text-center text-[#6B6B6B] text-sm font-medium">Cargando inventario...</td></tr>
                                 ) : paginated.length === 0 ? (
-                                    <tr><td colSpan={5} className="px-6 py-10 text-center text-[#6B6B6B] text-sm">No hay insumos para mostrar</td></tr>
+                                    <tr><td colSpan={5} className="px-6 py-12 text-center text-[#6B6B6B] text-sm font-medium">No hay insumos para mostrar</td></tr>
                                 ) : paginated.map((insumo, index) => {
                                     const bajo = insumo.stock_actual <= insumo.stock_minimo;
                                     return (
                                         <tr
                                             key={insumo._id}
-                                            className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9] transition-colors ${!insumo.activo ? "opacity-50" : ""} ${index % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/50"}`}
+                                            className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9]/50 transition-colors ${!insumo.activo ? "opacity-50" : ""} ${index % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/10"}`}
                                         >
                                             <td className="px-6 py-4 font-semibold text-[#2B2B2B]">{insumo.nombre_insumo}</td>
                                             <td className="px-6 py-4">
-                                                <span className={`font-bold text-lg ${bajo ? "text-[#C0392B]" : "text-[#2B2B2B]"}`}>
+                                                <span className={`font-extrabold text-lg ${bajo && insumo.activo ? "text-[#C0392B]" : "text-[#2B2B2B]"}`}>
                                                     {insumo.stock_actual}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-[#6B6B6B]">{insumo.stock_minimo}</td>
+                                            <td className="px-6 py-4 font-medium text-[#6B6B6B]">{insumo.stock_minimo}</td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${!insumo.activo ? "bg-[#D6D6D6] text-gray-600" : bajo ? "bg-[#E6A5A5] text-red-900" : "bg-[#A8D5BA] text-green-900"}`}>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${!insumo.activo ? "bg-[#D6D6D6] text-gray-600" : bajo ? "bg-[#E6A5A5] text-red-900" : "bg-[#A8D5BA] text-green-900"}`}>
                                                     {!insumo.activo ? "Inactivo" : bajo ? "Stock bajo" : "Normal"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <button onClick={() => handleEdit(insumo)} className="p-2 rounded-lg hover:bg-[#F2E6D9] text-[#E67E22] transition-colors" title="Editar">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <button onClick={() => handleEdit(insumo)} className="p-2 rounded-lg hover:bg-[#F2E6D9] text-[#E67E22] transition-colors active:scale-90" title="Editar">
                                                         <Pencil size={15} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleToggle(insumo)}
-                                                        className={`p-2 rounded-lg transition-colors ${insumo.activo ? "hover:bg-red-50 text-[#C0392B]" : "hover:bg-[#E1F5EE] text-[#0F6E56]"}`}
+                                                        className={`p-2 rounded-lg transition-colors active:scale-90 ${insumo.activo ? "hover:bg-red-50 text-[#C0392B]" : "hover:bg-[#E1F5EE] text-[#0F6E56]"}`}
                                                         title={insumo.activo ? "Desactivar" : "Reactivar"}
                                                     >
                                                         <PowerOff size={15} />
@@ -193,13 +259,16 @@ export const Inventory = () => {
                         </table>
                     </div>
 
-                    <Pagination
-                        currentPage={page}
-                        totalPages={totalPages || 1}
-                        total={filtered.length}
-                        itemsShown={paginated.length}
-                        onPageChange={setPage}
-                    />
+                    {/* PAGINACIÓN CON MARGEN ADECUADO */}
+                    <div className="pt-2">
+                        <Pagination
+                            currentPage={page}
+                            totalPages={totalPages || 1}
+                            total={filtered.length}
+                            itemsShown={paginated.length}
+                            onPageChange={setPage}
+                        />
+                    </div>
                 </>
             )}
 

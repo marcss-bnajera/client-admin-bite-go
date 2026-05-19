@@ -52,3 +52,20 @@
     filter: blur(1.5px);
     z-index: 1;
 }
+
+.scrollbar-thin::-webkit-scrollbar {
+    height: 5px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(58, 46, 42, 0.2);
+    border-radius: 20px;
+}
+
+.scrollbar-thin:hover::-webkit-scrollbar-thumb {
+    background: rgba(58, 46, 42, 0.5);
+}

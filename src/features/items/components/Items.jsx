@@ -19,7 +19,7 @@ const ESTADOS_EDITABLES = ["Pendiente"];
 const LIMIT = 10;
 
 export const Items = () => {
-    const { orders, loading } = useOrders();
+    const { orders, loading, getOrders } = useOrders();
     const { deleteItem } = useItemsStore();
 
     const [itemModalOpen, setItemModalOpen] = useState(false);
@@ -56,9 +56,9 @@ export const Items = () => {
         setExpandedOrder((prev) => (prev === orderId ? null : orderId));
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-full px-1 sm:px-0">
 
-            {/* HEADER */}
+            {/* HEADER (Adaptable y limpio) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 className="text-xl md:text-2xl font-extrabold text-[#2B2B2B]">Items de Pedidos</h2>
@@ -68,22 +68,22 @@ export const Items = () => {
                 </div>
             </div>
 
-            {/* BUSCADOR */}
-            <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9 max-w-md">
-                <Search size={14} className="text-[#6B6B6B] shrink-0" />
+            {/* BUSCADOR (Responsivo en móviles ocupando el ancho completo, auto-limitado en PC) */}
+            <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 w-full sm:max-w-md shadow-sm focus-within:border-[#E67E22] transition-colors">
+                <Search size={15} className="text-[#6B6B6B] shrink-0" />
                 <input
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B]"
+                    className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B] font-inherit"
                     placeholder="Buscar por cliente o restaurante..."
                 />
             </div>
 
             {/* LISTA */}
             {loading ? (
-                <p className="text-[#6B6B6B] text-sm text-center py-10">Cargando pedidos...</p>
+                <div className="bg-white p-10 rounded-2xl border border-[#E8D8C3] text-center text-[#6B6B6B] text-sm font-semibold">Cargando pedidos...</div>
             ) : paginated.length === 0 ? (
-                <p className="text-[#6B6B6B] text-sm text-center py-10">No hay pedidos registrados</p>
+                <div className="bg-white p-10 rounded-2xl border border-[#E8D8C3] text-center text-[#6B6B6B] text-sm">No hay pedidos registrados</div>
             ) : (
                 <div className="space-y-4">
                     {paginated.map((pedido) => {
@@ -92,83 +92,155 @@ export const Items = () => {
                         const items = pedido.items ?? [];
 
                         return (
-                            <div key={pedido._id} className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm overflow-hidden">
+                            <div key={pedido._id} className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm overflow-hidden transition-all duration-300">
+
+                                {/* CABECERA DE LA TARJETA (Flexible para romper a columna en pantallas mini) */}
                                 <div
-                                    className="flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-[#F5EFE6] transition-colors"
+                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 cursor-pointer hover:bg-[#F5EFE6] transition-colors"
                                     onClick={() => toggleExpand(pedido._id)}
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-8 h-8 rounded-xl bg-[#3A2E2A] flex items-center justify-center shrink-0">
-                                            <Layers size={14} className="text-white" />
+                                    <div className="flex items-center gap-3.5 min-w-0">
+                                        <div className="w-9 h-9 rounded-xl bg-[#3A2E2A] flex items-center justify-center shrink-0 shadow-sm">
+                                            <Layers size={15} className="text-white" />
                                         </div>
-                                        <div>
-                                            <p className="font-bold text-[#2B2B2B] text-sm">{pedido.id_usuario_cliente?.nombre || "—"}</p>
-                                            <p className="text-xs text-[#6B6B6B]">{pedido.id_restaurante?.nombre || "—"}</p>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-[#2B2B2B] text-sm sm:text-base truncate">{pedido.id_usuario_cliente?.nombre || "—"}</p>
+                                            <p className="text-xs text-[#6B6B6B] truncate">{pedido.id_restaurante?.nombre || "—"}</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${estadoColor[pedido.estado] ?? "bg-[#D6D6D6] text-gray-700"}`}>
+
+                                    {/* Indicadores de Estado y Cantidad */}
+                                    <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-2 sm:pt-0 border-[#E8D8C3]/60">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm inline-block text-center min-w-[95px] ${estadoColor[pedido.estado] ?? "bg-[#D6D6D6] text-gray-700"}`}>
                                             {pedido.estado}
                                         </span>
-                                        <span className="text-xs text-[#6B6B6B] font-semibold">
+                                        <span className="text-xs text-[#6B6B6B] font-bold bg-[#F5EFE6] px-2.5 py-1 rounded-lg shrink-0">
                                             {items.length} item{items.length !== 1 ? "s" : ""}
                                         </span>
-                                        {isExpanded ? <ChevronUp size={15} className="text-[#6B6B6B]" /> : <ChevronDown size={15} className="text-[#6B6B6B]" />}
+                                        {isExpanded ? <ChevronUp size={16} className="text-[#2B2B2B]" /> : <ChevronDown size={16} className="text-[#2B2B2B]" />}
                                     </div>
                                 </div>
 
+                                {/* DETALLE DESPLEGABLE (Híbrido: Tarjetas en móvil, Tabla impecable en PC) */}
                                 {isExpanded && (
-                                    <div className="border-t border-[#E8D8C3]">
+                                    <div className="border-t border-[#E8D8C3] bg-white transition-all duration-500">
                                         {items.length === 0 ? (
-                                            <p className="text-center text-sm text-[#6B6B6B] py-6">Este pedido no tiene items</p>
+                                            <p className="text-center text-sm text-[#6B6B6B] py-6 italic">Este pedido no tiene items</p>
                                         ) : (
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-[#F5EFE6]">
-                                                    <tr>
-                                                        <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] tracking-wide">Producto</th>
-                                                        <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] tracking-wide">Cantidad</th>
-                                                        <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] tracking-wide">Precio Unit.</th>
-                                                        <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] tracking-wide">Subtotal</th>
-                                                        <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] tracking-wide">Notas</th>
-                                                        <th className="text-left px-6 py-3 font-bold text-[#6B6B6B] tracking-wide">Acciones</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {items.map((item, idx) => (
-                                                        <tr
-                                                            key={item._id}
-                                                            className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9] transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/30"}`}
-                                                        >
-                                                            <td className="px-6 py-3 font-semibold text-[#2B2B2B]">{item.nombre_historico}</td>
-                                                            <td className="px-6 py-3 text-center font-bold text-[#2B2B2B]">{item.cantidad}</td>
-                                                            <td className="px-6 py-3 text-[#6B6B6B]">Q{item.precio_historico?.toFixed(2)}</td>
-                                                            <td className="px-6 py-3 font-bold text-[#E67E22]">Q{(item.precio_historico * item.cantidad).toFixed(2)}</td>
-                                                            <td className="px-6 py-3 text-[#6B6B6B] text-xs italic">{item.notas || "—"}</td>
-                                                            <td className="px-6 py-3">
-                                                                {puedeEditar ? (
+                                            <>
+                                                {/*VISTA EN CELULARES Y TABLETS CHICAS */}
+                                                <div className="block lg:hidden divide-y divide-[#E8D8C3]/60">
+                                                    {items.map((item) => (
+                                                        <div key={item._id} className="p-4 space-y-3 bg-white">
+                                                            {/* Fila Superior: Nombre del Producto */}
+                                                            <div className="flex justify-between items-start gap-2">
+                                                                <p className="font-bold text-[#2B2B2B] text-sm">{item.nombre_historico}</p>
+                                                                <span className="text-xs font-bold text-[#6B6B6B] bg-[#F5EFE6] px-2 py-0.5 rounded-md">
+                                                                    Cant: {item.cantidad}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Fila Central: Desglose de Precios */}
+                                                            <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-[#E8D8C3]/40 py-2 bg-[#F5EFE6]/20 px-2 rounded-xl">
+                                                                <div>
+                                                                    <p className="text-[#6B6B6B] font-medium">Precio Unit.</p>
+                                                                    <p className="text-[#2B2B2B] font-semibold mt-0.5">Q{item.precio_historico?.toFixed(2)}</p>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <p className="text-[#6B6B6B] font-medium">Subtotal</p>
+                                                                    <p className="text-[#E67E22] font-extrabold mt-0.5">Q{(item.precio_historico * item.cantidad).toFixed(2)}</p>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Notas si existen */}
+                                                            {item.notas && (
+                                                                <div className="text-xs text-[#6B6B6B] italic bg-gray-50 p-2 rounded-lg border border-dashed border-[#E8D8C3]">
+                                                                    <span className="font-semibold not-italic block text-[10px] text-[#A0A0A0] uppercase tracking-wider mb-0.5">Notas:</span>
+                                                                    "{item.notas}"
+                                                                </div>
+                                                            )}
+
+                                                            {/* Acciones y estado del Item */}
+                                                            <div className="flex items-center justify-between pt-1">
+                                                                <div>
+                                                                    {!puedeEditar && (
+                                                                        <span className="text-[11px] text-[#BCBCBC] italic font-medium bg-gray-100 px-2 py-1 rounded-md">No editable</span>
+                                                                    )}
+                                                                </div>
+                                                                {puedeEditar && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <button onClick={() => handleEditItem(item, pedido._id)} className="p-1.5 rounded-lg hover:bg-[#F2E6D9] text-[#E67E22] transition-colors" title="Editar item">
-                                                                            <Pencil size={13} />
+                                                                        <button onClick={() => handleEditItem(item, pedido._id)} className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#F5EFE6] text-[#E67E22] font-bold text-xs transition-colors active:scale-90">
+                                                                            <Pencil size={13} /> Editar
                                                                         </button>
-                                                                        <button onClick={() => handleDeleteItem(pedido._id, item)} className="p-1.5 rounded-lg hover:bg-red-50 text-[#C0392B] transition-colors" title="Eliminar item">
-                                                                            <Trash2 size={13} />
+                                                                        <button onClick={() => handleDeleteItem(pedido._id, item)} className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-50 text-[#C0392B] font-bold text-xs transition-colors active:scale-90">
+                                                                            <Trash2 size={13} /> Eliminar
                                                                         </button>
                                                                     </div>
-                                                                ) : (
-                                                                    <span className="text-xs text-[#C0C0C0] italic">No editable</span>
                                                                 )}
-                                                            </td>
-                                                        </tr>
+                                                            </div>
+                                                        </div>
                                                     ))}
-                                                </tbody>
-                                                <tfoot className="bg-[#F5EFE6]">
-                                                    <tr>
-                                                        <td colSpan={3} className="px-6 py-3 text-right font-bold text-[#2B2B2B]">Total del pedido:</td>
-                                                        <td className="px-6 py-3 font-extrabold text-[#E67E22]">Q{pedido.total?.toFixed(2) ?? "0.00"}</td>
-                                                        <td colSpan={2} />
-                                                    </tr>
-                                                </tfoot>
-                                            </table>
+
+                                                    {/* Footer del Total en Móvil */}
+                                                    <div className="bg-[#F5EFE6]/60 p-4 flex justify-between items-center border-t border-[#E8D8C3]">
+                                                        <span className="font-bold text-[#2B2B2B] text-sm">Total del pedido:</span>
+                                                        <span className="font-extrabold text-[#E67E22] text-base">Q{pedido.total?.toFixed(2) ?? "0.00"}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/*VISTA EN ESCRITORIO*/}
+                                                <div className="hidden lg:block w-full overflow-hidden">
+                                                    <table className="w-full text-sm border-collapse">
+                                                        <thead className="bg-[#F5EFE6] text-[#6B6B6B]">
+                                                            <tr>
+                                                                <th className="text-left px-6 py-3 font-bold tracking-wide">Producto</th>
+                                                                <th className="text-center px-6 py-3 font-bold tracking-wide w-24">Cantidad</th>
+                                                                <th className="text-left px-6 py-3 font-bold tracking-wide">Precio Unit.</th>
+                                                                <th className="text-left px-6 py-3 font-bold tracking-wide">Subtotal</th>
+                                                                <th className="text-left px-6 py-3 font-bold tracking-wide max-w-xs">Notas</th>
+                                                                <th className="text-center px-6 py-3 font-bold tracking-wide w-28">Acciones</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {items.map((item, idx) => (
+                                                                <tr
+                                                                    key={item._id}
+                                                                    className={`border-t border-[#E8D8C3]/60 hover:bg-[#F2E6D9]/50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/10"}`}
+                                                                >
+                                                                    <td className="px-6 py-3 font-semibold text-[#2B2B2B]">{item.nombre_historico}</td>
+                                                                    <td className="px-6 py-3 text-center font-extrabold text-[#2B2B2B]">{item.cantidad}</td>
+                                                                    <td className="px-6 py-3 text-[#6B6B6B]">Q{item.precio_historico?.toFixed(2)}</td>
+                                                                    <td className="px-6 py-3 font-bold text-[#E67E22]">Q{(item.precio_historico * item.cantidad).toFixed(2)}</td>
+                                                                    <td className="px-6 py-3 text-[#6B6B6B] text-xs italic max-w-xs truncate" title={item.notas || ""}>
+                                                                        {item.notas || "—"}
+                                                                    </td>
+                                                                    <td className="px-6 py-3 text-center">
+                                                                        {puedeEditar ? (
+                                                                            <div className="flex items-center justify-center gap-1">
+                                                                                <button onClick={() => handleEditItem(item, pedido._id)} className="p-2 rounded-lg hover:bg-[#F2E6D9] text-[#E67E22] transition-colors active:scale-90" title="Editar item">
+                                                                                    <Pencil size={14} />
+                                                                                </button>
+                                                                                <button onClick={() => handleDeleteItem(pedido._id, item)} className="p-2 rounded-lg hover:bg-red-50 text-[#C0392B] transition-colors active:scale-90" title="Eliminar item">
+                                                                                    <Trash2 size={14} />
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-xs text-[#BCBCBC] italic font-medium select-none">No editable</span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                        <tfoot className="bg-[#F5EFE6]/70 border-t border-[#E8D8C3]">
+                                                            <tr>
+                                                                <td colSpan={3} className="px-6 py-3.5 text-right font-bold text-[#2B2B2B]">Total del pedido:</td>
+                                                                <td className="px-6 py-3.5 font-extrabold text-[#E67E22] text-base">Q{pedido.total?.toFixed(2) ?? "0.00"}</td>
+                                                                <td colSpan={2} />
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
+                                            </>
                                         )}
                                     </div>
                                 )}
@@ -178,20 +250,23 @@ export const Items = () => {
                 </div>
             )}
 
-            <Pagination
-                currentPage={page}
-                totalPages={totalPages || 1}
-                total={filtered.length}
-                itemsShown={paginated.length}
-                onPageChange={setPage}
-            />
+            {/* CONTROL DE PAGINACIÓN */}
+            <div className="w-full py-1">
+                <Pagination
+                    currentPage={page}
+                    totalPages={totalPages || 1}
+                    total={filtered.length}
+                    itemsShown={paginated.length}
+                    onPageChange={setPage}
+                />
+            </div>
 
             <ItemModal
                 isOpen={itemModalOpen}
                 onClose={() => { setItemModalOpen(false); setSelectedItem(null); setSelectedOrderId(null); }}
                 item={selectedItem}
                 orderId={selectedOrderId}
-                onSaved={() => getItems(selectedOrderId)}
+                onSaved={() => getOrders({ activo: true })}
             />
         </div>
     );

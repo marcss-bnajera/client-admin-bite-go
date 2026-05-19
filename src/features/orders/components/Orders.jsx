@@ -95,10 +95,10 @@ export const Orders = () => {
         }
     };
 
-    const selectClass = "outline-none text-sm bg-transparent text-[#6B6B6B]";
+    const selectClass = "outline-none text-sm bg-transparent text-[#6B6B6B] cursor-pointer";
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-full px-1 sm:px-0">
 
             {/* HEADER */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -108,16 +108,17 @@ export const Orders = () => {
                 </div>
                 <button
                     onClick={handleNew}
-                    className="flex items-center gap-2 bg-[#C0392B] hover:bg-[#A93226] text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors self-start sm:self-auto"
+                    className="flex items-center gap-2 bg-[#C0392B] hover:bg-[#A93226] text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md transition-colors self-start sm:self-auto shrink-0"
                 >
                     <Plus size={16} /> Nuevo Pedido
                 </button>
             </div>
 
             {/* FILTROS */}
-            <div className="flex flex-wrap gap-2 items-center pb-4 border-b border-[#E8D8C3]">
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9 flex-1 min-w-[160px] max-w-xs">
-                    <Search size={14} className="text-[#6B6B6B] shrink-0" />
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center pb-4 border-b border-[#E8D8C3]">
+                {/* Input de Búsqueda */}
+                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 w-full sm:w-auto sm:flex-1 sm:max-w-xs shadow-sm focus-within:border-[#E67E22] transition-colors">
+                    <Search size={16} className="text-[#6B6B6B] shrink-0" />
                     <input
                         value={search}
                         onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -125,32 +126,108 @@ export const Orders = () => {
                         placeholder="Buscar por cliente o restaurante..."
                     />
                 </div>
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9">
-                    <Filter size={14} className="text-[#6B6B6B] shrink-0" />
-                    <select value={filterEstado} onChange={(e) => { setFilterEstado(e.target.value); setPage(1); }} className={selectClass}>
-                        <option value="">Todos los estados</option>
-                        {estados.map((e) => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-9">
-                    <select value={filterActivo} onChange={handleActivoChange} className={selectClass}>
-                        <option value="">Todos</option>
-                        <option value="activo">Activos</option>
-                        <option value="inactivo">Inactivos</option>
-                    </select>
+
+                {/* Contenedor de Selects en Móvil */}
+                <div className="flex flex-row gap-2 w-full sm:w-auto">
+                    {/* Filtro Estado */}
+                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 shadow-sm flex-1 sm:flex-none focus-within:border-[#E67E22] transition-colors">
+                        <Filter size={16} className="text-[#6B6B6B] shrink-0" />
+                        <select value={filterEstado} onChange={(e) => { setFilterEstado(e.target.value); setPage(1); }} className={`${selectClass} w-full`}>
+                            <option value="">Todos los estados</option>
+                            {estados.map((e) => <option key={e} value={e}>{e}</option>)}
+                        </select>
+                    </div>
+
+                    {/* Filtro Activo */}
+                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 shadow-sm flex-1 sm:flex-none focus-within:border-[#E67E22] transition-colors">
+                        <select value={filterActivo} onChange={handleActivoChange} className={`${selectClass} w-full`}>
+                            <option value="">Todos</option>
+                            <option value="activo">Activos</option>
+                            <option value="inactivo">Inactivos</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            {/* TABLA */}
-            <div className="bg-white rounded-2xl shadow-sm border border-[#E8D8C3] overflow-x-auto">
-                <table className="w-full text-sm min-w-[800px]">
+            {/* VISTA EN TARJETAS PARA CELULARES*/}
+            <div className="block lg:hidden space-y-3">
+                {loading ? (
+                    <div className="bg-white p-6 rounded-2xl border border-[#E8D8C3] text-center text-[#6B6B6B] text-sm font-medium">Cargando pedidos...</div>
+                ) : paginated.length === 0 ? (
+                    <div className="bg-white p-6 rounded-2xl border border-[#E8D8C3] text-center text-[#6B6B6B] text-sm font-medium">No se encontraron pedidos</div>
+                ) : paginated.map((o) => (
+                    <div
+                        key={o._id}
+                        className={`bg-white rounded-2xl p-4 border border-[#E8D8C3] shadow-sm space-y-3 transition-colors ${!o.activo ? "opacity-55" : ""}`}
+                    >
+                        {/* Fila superior: Cliente y Estado */}
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-full bg-[#3A2E2A] flex items-center justify-center shrink-0">
+                                    <User size={12} className="text-white" />
+                                </div>
+                                <span className="text-[#2B2B2B] font-bold truncate text-sm">{o.id_usuario_cliente?.nombre || "—"}</span>
+                            </div>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${estadoColor[o.estado] ?? "bg-[#D6D6D6] text-gray-700"}`}>
+                                {o.estado}
+                            </span>
+                        </div>
+
+                        {/* Detalles intermedios */}
+                        <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-[#E8D8C3]/60 py-2.5">
+                            <div>
+                                <p className="text-[#A0A0A0] font-medium mb-0.5">Restaurante</p>
+                                <div className="flex items-center gap-1 text-[#6B6B6B]">
+                                    <Store size={12} className="shrink-0 text-[#A0A0A0]" />
+                                    <span className="truncate">{o.id_restaurante?.nombre || "—"}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-[#A0A0A0] font-medium mb-0.5">Tipo Servicio</p>
+                                <TipoIcon tipo={o.tipo_servicio} />
+                            </div>
+                            <div>
+                                <p className="text-[#A0A0A0] font-medium mb-0.5">Asignado a</p>
+                                <AsignadoCell order={o} />
+                            </div>
+                            <div>
+                                <p className="text-[#A0A0A0] font-medium mb-0.5">Items / Total</p>
+                                <p className="text-[#2B2B2B] font-bold">
+                                    {o.items?.length ?? 0} <span className="text-[#6B6B6B] font-normal text-[11px]">u.</span> — <span className="text-[#C0392B]">Q{o.total?.toFixed(2) ?? "0.00"}</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Acciones inferiores */}
+                        <div className="flex items-center justify-end gap-1 pt-1">
+                            <button onClick={() => handleEdit(o)} className="p-2 rounded-xl bg-[#F5EFE6] text-[#E67E22] transition-colors" title="Ver pedido">
+                                <Eye size={15} />
+                            </button>
+                            <button onClick={() => handleEdit(o)} className="p-2 rounded-xl bg-[#F5EFE6] text-[#E67E22] transition-colors" title="Editar estado">
+                                <Pencil size={15} />
+                            </button>
+                            <button
+                                onClick={() => handleToggle(o)}
+                                className={`p-2 rounded-xl transition-colors ${o.activo ? "bg-red-50 text-[#C0392B]" : "bg-[#E1F5EE] text-[#0F6E56]"}`}
+                                title={o.activo ? "Desactivar pedido" : "Reactivar pedido"}
+                            >
+                                {o.activo ? <Trash2 size={15} /> : <PowerOff size={15} />}
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* TABLA TRADICIONAL PARA ESCRITORIO (Oculta hasta lg:block) */}
+            <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-[#E8D8C3] overflow-hidden">
+                <table className="w-full text-sm table-auto">
                     <thead className="bg-[#3A2E2A] text-white">
                         <tr>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Cliente</th>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Restaurante</th>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Tipo</th>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Asignado</th>
-                            <th className="text-left px-6 py-4 font-bold tracking-wide">Items</th>
+                            <th className="text-center px-6 py-4 font-bold tracking-wide">Items</th>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Estado</th>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Total</th>
                             <th className="text-left px-6 py-4 font-bold tracking-wide">Acciones</th>
@@ -166,7 +243,7 @@ export const Orders = () => {
                                 key={o._id}
                                 className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9] transition-colors ${!o.activo ? "opacity-55" : ""} ${index % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/50"}`}
                             >
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-2">
                                         <div className="w-7 h-7 rounded-full bg-[#3A2E2A] flex items-center justify-center shrink-0">
                                             <User size={12} className="text-white" />
@@ -174,22 +251,22 @@ export const Orders = () => {
                                         <span className="text-[#2B2B2B] font-medium">{o.id_usuario_cliente?.nombre || "—"}</span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-2 text-[#6B6B6B]">
                                         <Store size={13} className="shrink-0" />
                                         {o.id_restaurante?.nombre || "—"}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4"><TipoIcon tipo={o.tipo_servicio} /></td>
-                                <td className="px-6 py-4"><AsignadoCell order={o} /></td>
-                                <td className="px-6 py-4 text-center font-semibold text-[#2B2B2B]">{o.items?.length ?? 0}</td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 whitespace-nowrap"><TipoIcon tipo={o.tipo_servicio} /></td>
+                                <td className="px-6 py-4 whitespace-nowrap"><AsignadoCell order={o} /></td>
+                                <td className="px-6 py-4 text-center font-semibold text-[#2B2B2B] whitespace-nowrap">{o.items?.length ?? 0}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${estadoColor[o.estado] ?? "bg-[#D6D6D6] text-gray-700"}`}>
                                         {o.estado}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 font-bold text-[#2B2B2B]">Q{o.total?.toFixed(2) ?? "0.00"}</td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 font-bold text-[#2B2B2B] whitespace-nowrap">Q{o.total?.toFixed(2) ?? "0.00"}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => handleEdit(o)} className="p-2 rounded-lg hover:bg-[#F2E6D9] text-[#E67E22] transition-colors" title="Ver pedido">
                                             <Eye size={15} />
@@ -212,13 +289,16 @@ export const Orders = () => {
                 </table>
             </div>
 
-            <Pagination
-                currentPage={page}
-                totalPages={totalPages || 1}
-                total={filtered.length}
-                itemsShown={paginated.length}
-                onPageChange={setPage}
-            />
+            {/* PAGINACIÓN */}
+            <div className="w-full py-1">
+                <Pagination
+                    currentPage={page}
+                    totalPages={totalPages || 1}
+                    total={filtered.length}
+                    itemsShown={paginated.length}
+                    onPageChange={setPage}
+                />
+            </div>
 
             <OrderModal
                 isOpen={modalOpen}
