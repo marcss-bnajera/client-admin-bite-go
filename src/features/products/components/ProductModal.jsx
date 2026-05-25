@@ -84,7 +84,17 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
         }
     }, [isOpen, product, reset]);
 
+    const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif'];
+    const ALLOWED_LABEL = 'JPEG, JPG, PNG, WEBP o AVIF';
+
     const onSubmit = async (data) => {
+        // Validar tipo de imagen en cliente antes de enviar
+        const file = data.foto?.[0];
+        if (file && !ALLOWED_TYPES.includes(file.type)) {
+            showError(`Formato no permitido: "${file.type || file.name}". Solo se aceptan ${ALLOWED_LABEL}.`);
+            return;
+        }
+
         try {
             await saveProduct(data, product?._id ?? null);
             showSuccess(isEditing ? "Producto actualizado correctamente" : "Producto creado correctamente");
@@ -94,7 +104,8 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
             onSaved?.();
             onClose();
         } catch (error) {
-            showError("Error al guardar el producto");
+            const mensaje = error?.response?.data?.message || "Error al guardar el producto";
+            showError(mensaje);
         }
     };
 
@@ -272,7 +283,7 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
                             </span>
                             <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/jpeg,image/jpg,image/png,image/webp,image/avif"
                                 className="hidden"
                                 {...register("foto")}
                             />

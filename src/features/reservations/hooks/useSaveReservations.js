@@ -9,11 +9,9 @@ export const useSaveReservation = () => {
             const payload = {
                 peopleCount: Number(data.peopleCount),
                 status: data.status,
+                reservationDate: data.reservationDate,
+                tableId: data.tableId,
             };
-
-            if (data.reservationDate !== data.originalReservationDate) {
-                payload.reservationDate = data.reservationDate;
-            }
 
             await updateReservation(reservationId, payload);
         } else {

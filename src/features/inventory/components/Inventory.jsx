@@ -26,10 +26,11 @@ export const Inventory = () => {
 
     useEffect(() => {
         if (filterRestaurant) {
-            getInventoryByRestaurant(filterRestaurant);
+            const params = filterActivo === "inactivo" ? {} : { activo: filterActivo === "activo" ? true : undefined };
+            getInventoryByRestaurant(filterRestaurant, params);
             getLowStockAlerts(filterRestaurant);
         }
-    }, [filterRestaurant]);
+    }, [filterRestaurant, filterActivo]);
 
     const filtered = (inventory ?? []).filter((i) => {
         const matchSearch = i.nombre_insumo?.toLowerCase().includes(search.toLowerCase());
@@ -63,7 +64,12 @@ export const Inventory = () => {
 
     const refreshInventory = () => {
         if (filterRestaurant) {
-            getInventoryByRestaurant(filterRestaurant);
+            const params = filterActivo === "activo"
+                ? { activo: true }
+                : filterActivo === "inactivo"
+                    ? { activo: false }
+                    : {};
+            getInventoryByRestaurant(filterRestaurant, params);
             getLowStockAlerts(filterRestaurant);
         }
     };

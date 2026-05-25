@@ -26,9 +26,12 @@ export const useOrdersStore = create((set, get) => ({
         try {
             set({ loading: true, error: null });
             await createOrderRequest(data);
-            await get().getOrders({ activo: true });
+            await get().getOrders();
         } catch (error) {
-            set({ error: error.response?.data?.message || "Error al crear pedido", loading: false });
+            set({
+                error: error.response?.data?.message || "Error al crear pedido",
+                loading: false
+            });
             throw error;
         }
     },

@@ -12,6 +12,7 @@ export const Recipes = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedIngredient, setSelectedIngredient] = useState(null);
     const [selectedProductId, setSelectedProductId] = useState(null);
+    const [selectedRestauranteId, setSelectedRestauranteId] = useState(null);
     const [search, setSearch] = useState("");
 
     const productsWithRecipes = (products ?? []).filter((p) =>
@@ -19,13 +20,14 @@ export const Recipes = () => {
         p.id_restaurante?.nombre?.toLowerCase().includes(search.toLowerCase())
     );
 
-    const handleAddIngredient = (productId) => { setSelectedIngredient(null); setSelectedProductId(productId); setModalOpen(true); };
-    const handleEditIngredient = (ingredient, productId) => { setSelectedIngredient(ingredient); setSelectedProductId(productId); setModalOpen(true); };
+    const handleAddIngredient = (productId, idRestaurante) => { setSelectedIngredient(null); setSelectedProductId(productId); setSelectedRestauranteId(idRestaurante); setModalOpen(true); };
+    const handleEditIngredient = (ingredient, productId, idRestaurante) => { setSelectedIngredient(ingredient); setSelectedProductId(productId); setSelectedRestauranteId(idRestaurante); setModalOpen(true); };
 
     const handleDeleteIngredient = (productId, ing) => {
+        const nombreInsumo = ing.id_insumo?.nombre_insumo ?? "este ingrediente";
         showConfirmToast({
             title: "Eliminar ingrediente",
-            message: `¿Eliminar "${ing.nombre_insumo}" de la receta?`,
+            message: `¿Eliminar "${nombreInsumo}" de la receta?`,
             type: "delete",
             onConfirm: () => deleteRecipeItem(productId, ing._id),
         });
@@ -81,7 +83,7 @@ export const Recipes = () => {
                             </div>
 
                             <button
-                                onClick={() => handleAddIngredient(producto._id)}
+                                onClick={() => handleAddIngredient(producto._id, producto.id_restaurante?._id ?? producto.id_restaurante)}
                                 className="flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl bg-[#E67E22] hover:bg-[#D35400] text-white font-bold text-xs transition-all active:scale-95 shrink-0"
                             >
                                 <Plus size={14} /> <span>Ingrediente</span>
@@ -98,13 +100,13 @@ export const Recipes = () => {
                                     <div key={ing._id} className="flex items-center justify-between bg-[#F5EFE6] rounded-xl px-3 py-2.5">
                                         <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
                                             <FlaskConical size={14} className="text-[#E67E22] shrink-0" />
-                                            <span className="text-xs text-[#2B2B2B] font-semibold truncate" title={ing.nombre_insumo}>
-                                                {ing.nombre_insumo}
+                                            <span className="text-xs text-[#2B2B2B] font-semibold truncate" title={ing.id_insumo?.nombre_insumo ?? ing.id_insumo}>
+                                                {ing.id_insumo?.nombre_insumo ?? "Insumo eliminado"}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0 ml-2">
                                             <span className="text-[10px] font-black text-[#8C6D4A] bg-[#E8D8C3]/60 px-2 py-0.5 rounded-md">x{ing.cantidad_requerida}</span>
-                                            <button onClick={() => handleEditIngredient(ing, producto._id)} className="p-1.5 rounded-lg hover:bg-[#E8D8C3] text-[#E67E22] transition-colors" title="Editar">
+                                            <button onClick={() => handleEditIngredient(ing, producto._id, producto.id_restaurante?._id ?? producto.id_restaurante)} className="p-1.5 rounded-lg hover:bg-[#E8D8C3] text-[#E67E22] transition-colors" title="Editar">
                                                 <Pencil size={13} />
                                             </button>
                                             <button onClick={() => handleDeleteIngredient(producto._id, ing)} className="p-1.5 rounded-lg hover:bg-[#E6A5A5]/30 text-[#C0392B] transition-colors" title="Eliminar">
@@ -126,9 +128,10 @@ export const Recipes = () => {
 
             <RecipeModal
                 isOpen={modalOpen}
-                onClose={() => { setModalOpen(false); setSelectedIngredient(null); setSelectedProductId(null); }}
+                onClose={() => { setModalOpen(false); setSelectedIngredient(null); setSelectedProductId(null); setSelectedRestauranteId(null); }}
                 ingredient={selectedIngredient}
                 productId={selectedProductId}
+                idRestaurante={selectedRestauranteId}
                 onSaved={() => { }}
             />
         </div>

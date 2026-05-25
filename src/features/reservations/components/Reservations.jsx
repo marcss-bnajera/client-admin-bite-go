@@ -22,7 +22,15 @@ const LIMIT = 6;
 
 const formatDate = (iso) => {
     const d = new Date(iso);
-    return d.toLocaleDateString("es-GT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleString("es-GT", {
+        timeZone: "America/Guatemala",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+    });
 };
 
 export const Reservations = () => {

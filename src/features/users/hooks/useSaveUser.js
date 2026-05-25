@@ -23,10 +23,8 @@ export const useSaveUser = () => {
         }
 
         if (userId) {
-            // Editar: solo actualiza MongoDB
             await updateUser(userId, payload);
         } else {
-            // Crear: registrar en auth-service (PostgreSQL) con el rol ya asignado
             const formData = new FormData();
             formData.append("Name", data.nombre.split(" ")[0]);
             formData.append("Surname", data.nombre.split(" ").slice(1).join(" ") || data.nombre);
@@ -36,10 +34,20 @@ export const useSaveUser = () => {
             formData.append("Phone", data.telefono || "00000000");
             formData.append("RoleName", data.rol);
 
-            await register(formData);
+            // Capturar el id que devuelve el auth-service
+            const authResponse = await register(formData);
+            const authUserId = authResponse?.data?.user?.id ?? null;
 
-            // Luego guardar en MongoDB con los datos operativos
-            await createUser(payload);
+            // Si MongoDB falla, el error sube con contexto útil
+            try {
+                await createUser({ ...payload, auth_id: authUserId });
+            } catch (mongoError) {
+                console.error(`[dual-write] Fallo MongoDB para auth_id ${authUserId}:`, mongoError.message);
+                throw new Error(
+                    "Usuario creado en autenticación pero falló el registro operativo. " +
+                    "Contacta al administrador del sistema."
+                );
+            }
         }
     };
 

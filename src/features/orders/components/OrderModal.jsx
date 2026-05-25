@@ -75,6 +75,13 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
         if (!nuevoItem.id_producto) return;
         const producto = products.find((p) => p._id === nuevoItem.id_producto);
         if (!producto) return;
+
+        // Advertencia si el producto no tiene receta definida
+        if (!producto.receta || producto.receta.length === 0) {
+            showError(`"${producto.nombre}" no tiene receta definida. El pedido será bloqueado al guardar hasta que definas sus ingredientes.`);
+            return;
+        }
+
         setForm((prev) => ({
             ...prev,
             items: [
@@ -113,11 +120,12 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
 
         try {
             await saveOrder({ ...form, total }, order?._id ?? null);
-            showSuccess(isEditing ? "Pedido actualizado correctamente" : "Pedido creado correctamente");
+            showSuccess(isEditing ? "Pedido actualizado correctamente" : "Pedido creado y stock descontado correctamente");
             onSaved?.();
             onClose();
-        } catch {
-            showError("Error al guardar el pedido");
+        } catch (err) {
+            const mensaje = err?.response?.data?.message || "Error al guardar el pedido";
+            showError(mensaje);
         }
     };
 
@@ -163,7 +171,7 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit(onSubmit)} noValidate className="px-6 py-5 space-y-5">
+                <form noValidate className="px-6 py-5 space-y-5">
 
                     {/* Aviso pedido inactivo */}
                     {isEditing && !form.activo && (
@@ -401,7 +409,8 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
                                 Cancelar
                             </button>
                             <button
-                                type="submit"
+                                type="button"
+                                onClick={onSubmit}
                                 disabled={loading}
                                 className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors disabled:opacity-60"
                             >

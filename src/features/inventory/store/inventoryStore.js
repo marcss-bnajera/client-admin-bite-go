@@ -14,7 +14,7 @@ export const useInventoryStore = create((set, get) => ({
     loading: false,
     error: null,
 
-    getInventoryByRestaurant: async (id_restaurante, params) => {
+    getInventoryByRestaurant: async (id_restaurante, params = {}) => {
         try {
             set({ loading: true, error: null });
             const response = await getInventoryRequest(id_restaurante, params);
