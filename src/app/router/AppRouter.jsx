@@ -17,6 +17,8 @@ import { useAuthStore } from "../../features/auth/store/authStore.js";
 
 export const AppRoutes = () => {
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const role = useAuthStore((state) => state.user?.role);
+    const isSuperAdmin = role === "SuperAdmin";
 
     return (
         <Routes>
@@ -31,7 +33,7 @@ export const AppRoutes = () => {
                 <Route path="inventario" element={<Inventory />} />
                 <Route path="reservaciones" element={<Reservations />} />
                 <Route path="restaurantes" element={<Restaurants />} />
-                <Route path="usuarios" element={<Users />} />
+                <Route path="usuarios" element={isSuperAdmin ? <Users /> : <Navigate to="/dashboard" replace />} />
                 <Route path="recetas" element={<Recipes />} />
                 <Route path="eventos" element={<Events />} />
                 <Route path="mesas" element={<Tables />} />

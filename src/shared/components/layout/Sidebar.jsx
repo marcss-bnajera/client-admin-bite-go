@@ -6,8 +6,9 @@ import {
     Package, CalendarDays, Store, Users,
     BookOpen, PartyPopper, Armchair, Tag
 } from "lucide-react";
+import { useAuthStore } from "../../../features/auth/store/authStore";
 
-const groups = [
+const allGroups = [
     {
         label: "Principal",
         items: [
@@ -36,6 +37,7 @@ const groups = [
     },
     {
         label: "Acceso",
+        superAdminOnly: true,
         items: [
             { label: "Usuarios", icon: Users, path: "/dashboard/usuarios" },
         ],
@@ -43,6 +45,10 @@ const groups = [
 ];
 
 export const Sidebar = ({ isOpen, onClose }) => {
+    const role = useAuthStore((state) => state.user?.role);
+    const isSuperAdmin = role === "SuperAdmin";
+    const groups = allGroups.filter(g => !g.superAdminOnly || isSuperAdmin);
+
     const [collapsed, setCollapsed] = useState(!isOpen);
 
     useEffect(() => {
