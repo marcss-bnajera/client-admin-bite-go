@@ -11,6 +11,12 @@ import {
     addEvento as addEventoRequest,
     updateEvento as updateEventoRequest,
     deleteEvento as deleteEventoRequest,
+    addSucursal as addSucursalRequest,
+    updateSucursal as updateSucursalRequest,
+    deleteSucursal as deleteSucursalRequest,
+    addMesaSucursal as addMesaSucursalRequest,
+    updateMesaSucursal as updateMesaSucursalRequest,
+    deleteMesaSucursal as deleteMesaSucursalRequest,
 } from "../../../shared/api";
 
 export const useRestaurantsStore = create((set, get) => ({
@@ -32,7 +38,9 @@ export const useRestaurantsStore = create((set, get) => ({
         try {
             set({ loading: true, error: null });
             const response = await createRestaurantRequest(data);
-            set({ restaurants: [response.data.restaurant, ...get().restaurants], loading: false });
+            const newRestaurant = response.data.restaurant;
+            set({ restaurants: [newRestaurant, ...get().restaurants], loading: false });
+            return newRestaurant;
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al crear restaurante", loading: false });
             throw error;
@@ -43,10 +51,12 @@ export const useRestaurantsStore = create((set, get) => ({
         try {
             set({ loading: true, error: null });
             const response = await updateRestaurantRequest(id, data);
+            const updated = response.data.restaurant;
             set({
-                restaurants: get().restaurants.map((r) => r._id === id ? response.data.restaurant : r),
+                restaurants: get().restaurants.map((r) => r._id === id ? updated : r),
                 loading: false,
             });
+            return updated;
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al actualizar restaurante", loading: false });
             throw error;
@@ -125,8 +135,8 @@ export const useRestaurantsStore = create((set, get) => ({
     },
 
     addEvento: async (restaurantId, data) => {
+        set({ loading: true, error: null });
         try {
-            set({ loading: true, error: null });
             const response = await addEventoRequest(restaurantId, data);
             set({
                 restaurants: get().restaurants.map((r) =>
@@ -134,25 +144,28 @@ export const useRestaurantsStore = create((set, get) => ({
                 ),
                 loading: false,
             });
+            return response;
         } catch (error) {
-            set({ error: error.response?.data?.message || "Error al agregar evento", loading: false });
+            set({ loading: false });
+            throw error;
         }
     },
 
     updateEvento: async (restId, eventoId, data) => {
+        set({ loading: true, error: null });
         try {
-            set({ loading: true, error: null });
             await updateEventoRequest(restId, eventoId, data);
             await get().getRestaurants();
             set({ loading: false });
         } catch (error) {
-            set({ error: error.response?.data?.message || "Error al actualizar evento", loading: false });
+            set({ loading: false });
+            throw error;
         }
     },
 
     deleteEvento: async (restId, eventoId) => {
+        set({ loading: true, error: null });
         try {
-            set({ loading: true, error: null });
             await deleteEventoRequest(restId, eventoId);
             set({
                 restaurants: get().restaurants.map((r) =>
@@ -163,7 +176,91 @@ export const useRestaurantsStore = create((set, get) => ({
                 loading: false,
             });
         } catch (error) {
-            set({ error: error.response?.data?.message || "Error al eliminar evento", loading: false });
+            set({ loading: false });
+            throw error;
+        }
+    },
+
+    addSucursal: async (restaurantId, data) => {
+        try {
+            set({ loading: true, error: null });
+            const response = await addSucursalRequest(restaurantId, data);
+            set({
+                restaurants: get().restaurants.map((r) =>
+                    r._id === restaurantId ? { ...r, sucursales: response.data.sucursales } : r
+                ),
+                loading: false,
+            });
+        } catch (error) {
+            set({ error: error.response?.data?.message || "Error al crear sucursal", loading: false });
+            throw error;
+        }
+    },
+
+    updateSucursal: async (restaurantId, sucursalId, data) => {
+        try {
+            set({ loading: true, error: null });
+            const response = await updateSucursalRequest(restaurantId, sucursalId, data);
+            set({
+                restaurants: get().restaurants.map((r) =>
+                    r._id === restaurantId ? { ...r, sucursales: response.data.sucursales } : r
+                ),
+                loading: false,
+            });
+        } catch (error) {
+            set({ error: error.response?.data?.message || "Error al actualizar sucursal", loading: false });
+            throw error;
+        }
+    },
+
+    deleteSucursal: async (restaurantId, sucursalId) => {
+        try {
+            set({ loading: true, error: null });
+            await deleteSucursalRequest(restaurantId, sucursalId);
+            await get().getRestaurants();
+            set({ loading: false });
+        } catch (error) {
+            set({ error: error.response?.data?.message || "Error al eliminar sucursal", loading: false });
+            throw error;
+        }
+    },
+
+    addMesaSucursal: async (restaurantId, sucursalId, data) => {
+        try {
+            set({ loading: true, error: null });
+            const response = await addMesaSucursalRequest(restaurantId, sucursalId, data);
+            set({
+                restaurants: get().restaurants.map((r) => {
+                    if (r._id !== restaurantId) return r;
+                    return { ...r, sucursales: r.sucursales.map(s => s._id === sucursalId ? { ...s, mesas: response.data.mesas } : s) };
+                }),
+                loading: false,
+            });
+        } catch (error) {
+            set({ error: error.response?.data?.message || "Error al agregar mesa", loading: false });
+            throw error;
+        }
+    },
+
+    updateMesaSucursal: async (restaurantId, sucursalId, mesaId, data) => {
+        try {
+            set({ loading: true, error: null });
+            await updateMesaSucursalRequest(restaurantId, sucursalId, mesaId, data);
+            await get().getRestaurants();
+            set({ loading: false });
+        } catch (error) {
+            set({ error: error.response?.data?.message || "Error al actualizar mesa", loading: false });
+        }
+    },
+
+    deleteMesaSucursal: async (restaurantId, sucursalId, mesaId) => {
+        try {
+            set({ loading: true, error: null });
+            await deleteMesaSucursalRequest(restaurantId, sucursalId, mesaId);
+            await get().getRestaurants();
+            set({ loading: false });
+        } catch (error) {
+            set({ error: error.response?.data?.message || "Error al eliminar mesa", loading: false });
         }
     },
 }));

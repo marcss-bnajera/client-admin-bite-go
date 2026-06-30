@@ -73,6 +73,33 @@ export const deleteRestaurant = async (id) => {
 export const activateRestaurant = async (id) => {
     return await axiosAdmin.patch(`/restaurants/${id}/activate`);
 };
+export const uploadRestaurantPhoto = async (id, formData) => {
+    return await axiosAdmin.post(`/restaurants/${id}/foto`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
+};
+// ================= SUCURSALES =================
+export const getSucursales = async (restaurantId) => {
+    return await axiosAdmin.get(`/restaurants/${restaurantId}/sucursales`);
+};
+export const addSucursal = async (restaurantId, data) => {
+    return await axiosAdmin.post(`/restaurants/${restaurantId}/sucursales`, data);
+};
+export const updateSucursal = async (restaurantId, sucursalId, data) => {
+    return await axiosAdmin.put(`/restaurants/${restaurantId}/sucursales/${sucursalId}`, data);
+};
+export const deleteSucursal = async (restaurantId, sucursalId) => {
+    return await axiosAdmin.delete(`/restaurants/${restaurantId}/sucursales/${sucursalId}`);
+};
+export const addMesaSucursal = async (restaurantId, sucursalId, data) => {
+    return await axiosAdmin.post(`/restaurants/${restaurantId}/sucursales/${sucursalId}/mesas`, data);
+};
+export const updateMesaSucursal = async (restaurantId, sucursalId, mesaId, data) => {
+    return await axiosAdmin.put(`/restaurants/${restaurantId}/sucursales/${sucursalId}/mesas/${mesaId}`, data);
+};
+export const deleteMesaSucursal = async (restaurantId, sucursalId, mesaId) => {
+    return await axiosAdmin.delete(`/restaurants/${restaurantId}/sucursales/${sucursalId}/mesas/${mesaId}`);
+};
 // ================= TABLES =================
 export const getMesas = async (restaurantId) => {
     return await axiosAdmin.get(`/tables/${restaurantId}`);
@@ -145,8 +172,8 @@ export const deleteItem = async (orderId, itemId) => {
 export const getInventoryByRestaurant = async (id_restaurante, params) => {
     return await axiosAdmin.get(`/suppliesInventory/restaurant/${id_restaurante}`, { params });
 };
-export const getLowStockAlerts = async (id_restaurante) => {
-    return await axiosAdmin.get(`/suppliesInventory/alerts/${id_restaurante}`);
+export const getLowStockAlerts = async (id_restaurante, params) => {
+    return await axiosAdmin.get(`/suppliesInventory/alerts/${id_restaurante}`, { params });
 };
 export const createInsumo = async (data) => {
     return await axiosAdmin.post("/suppliesInventory", data);
@@ -175,4 +202,10 @@ export const updateReservation = async (id, data) => {
 };
 export const deleteReservation = async (id) => {
     return await axiosAdmin.delete(`/reservations/${id}`);
+};
+export const checkInReservation = async (id) => {
+    return await axiosAdmin.put(`/reservations/${id}/check-in`);
+};
+export const getTablesAvailability = async (params) => {
+    return await axiosAdmin.get(`/reservations/tables-availability`, { params });
 };

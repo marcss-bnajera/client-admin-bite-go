@@ -54,6 +54,9 @@ const handleRefreshToken = async function (_error) {
         return Promise.reject(_error);
     }
     const status = _error.response?.status;
+    if (status === 429) {
+        return Promise.resolve(undefined);
+    }
     const errorCode = _error.response?.data?.error;
     const requestUrl = _original.url || "";
     const isRefreshEndpoint = requestUrl.includes("/auth/refresh");
