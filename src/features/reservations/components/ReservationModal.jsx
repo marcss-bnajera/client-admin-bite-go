@@ -1,13 +1,17 @@
-import { X, CalendarDays, AlertTriangle } from "lucide-react";
-import { useEffect } from "react";
+import { X, CalendarDays, AlertTriangle, Store, MapPin, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useSaveReservation } from "../hooks/useSaveReservations";
 import { useReservationsStore } from "../store/reservationsStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { useUsersStore } from "../../users/store/usersStore";
 import { showSuccess, showError } from "../../../shared/utils/toast";
-
-const toGuatemalaISO = (localDatetimeStr) => `${localDatetimeStr}:00-06:00`;
+import { getTablesAvailability } from "../../../shared/api/admin";
+import { DatePicker, TimePicker } from "../../../shared/ui/DatePicker";
+import { format } from "date-fns";
+import { es } from "date-fns/locale/es";
+import { RestaurantPickerModal } from "../../../shared/components/ui/RestaurantPickerModal";
+import { SucursalPickerModal } from "../../../shared/components/ui/SucursalPickerModal";
 
 const fromUTCtoLocalInput = (isoString) => {
     const date = new Date(isoString);
@@ -16,7 +20,7 @@ const fromUTCtoLocalInput = (isoString) => {
     return `${gt.getUTCFullYear()}-${pad(gt.getUTCMonth() + 1)}-${pad(gt.getUTCDate())}T${pad(gt.getUTCHours())}:${pad(gt.getUTCMinutes())}`;
 };
 
-export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved }) => {
+export const ReservationModal = ({ isOpen, onClose, reservation = null, restauranteId = null, onSaved }) => {
     const isEditing = !!reservation;
     const { saveReservation } = useSaveReservation();
     const loading = useReservationsStore((state) => state.loading);
@@ -26,11 +30,35 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
     const users = useUsersStore((state) => state.users);
     const getUsers = useUsersStore((state) => state.getUsers);
 
+    const [fechaReserva, setFechaReserva] = useState(null);
+    const [horaReserva, setHoraReserva] = useState("");
+    const [idSucursal, setIdSucursal] = useState("");
+    const [tableAvailability, setTableAvailability] = useState(null);
+
+    const [selectedRestId, setSelectedRestId] = useState("");
+    const [selectedSucId, setSelectedSucId] = useState("");
+    const [restPickerOpen, setRestPickerOpen] = useState(false);
+    const [sucPickerOpen, setSucPickerOpen] = useState(false);
+    const prevRestId = useRef(null);
+    const prevSucId = useRef(null);
+
+    const selectedRestaurantObj = useMemo(
+        () => restaurants.find((r) => r._id === selectedRestId),
+        [restaurants, selectedRestId]
+    );
+    const tieneSucursales = selectedRestaurantObj?.tiene_sucursales && selectedRestaurantObj?.sucursales?.length > 0;
+    const sucursales = tieneSucursales ? (selectedRestaurantObj?.sucursales ?? []) : [];
+    const selectedSucursalObj = useMemo(
+        () => selectedSucId ? sucursales.find((s) => s._id === selectedSucId) : null,
+        [sucursales, selectedSucId]
+    );
+
     const {
         register,
         handleSubmit,
         reset,
         watch,
+        setValue,
         formState: { errors }
     } = useForm();
 
@@ -38,15 +66,34 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
     const tableId = watch("tableId");
     const peopleCount = watch("peopleCount");
 
-    const selectedRestaurant = restaurants.find((r) => r._id === restaurantId);
+    const horariosAdmin = selectedSucursalObj?.horarios_atencion || selectedRestaurantObj?.horarios_atencion || "";
+    let openingTimeAdmin = "";
+    let closingTimeAdmin = "";
+    if (horariosAdmin) {
+        const [aperturaStr, cierreStr] = horariosAdmin.split(" - ");
+        openingTimeAdmin = aperturaStr;
+        const [cH, cM] = cierreStr.split(":").map(Number);
+        const cierreDate = new Date();
+        cierreDate.setHours(cH, cM, 0, 0);
+        cierreDate.setMinutes(cierreDate.getMinutes() - 90);
+        closingTimeAdmin = `${String(cierreDate.getHours()).padStart(2, "0")}:${String(cierreDate.getMinutes()).padStart(2, "0")}`;
+    }
 
-    // Solo mesas que no están en Mantenimiento
-    const mesasDisponibles = (selectedRestaurant?.mesas ?? []).filter(
-        (m) => m.estado !== "Mantenimiento"
-    );
-    const mesasEnMantenimiento = (selectedRestaurant?.mesas ?? []).filter(
-        (m) => m.estado === "Mantenimiento"
-    );
+    const mesasFuente = selectedSucursalObj
+        ? (selectedSucursalObj.mesas ?? [])
+        : (selectedRestaurantObj?.mesas ?? []);
+
+    const mesasDisponibles = tableAvailability
+        ? tableAvailability.mesas.filter((m) => m.disponible)
+        : mesasFuente.filter((m) => m.estado !== "Mantenimiento");
+
+    const mesasOcupadas = tableAvailability
+        ? tableAvailability.mesas.filter((m) => !m.disponible && m.estado !== "Mantenimiento")
+        : [];
+
+    const mesasEnMantenimiento = tableAvailability
+        ? tableAvailability.mesas.filter((m) => m.estado === "Mantenimiento")
+        : mesasFuente.filter((m) => m.estado === "Mantenimiento");
 
     // Mesa actualmente seleccionada para mostrar hints dinámicos
     const mesaSeleccionada = mesasDisponibles.find((m) => m._id === tableId);
@@ -54,25 +101,115 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
 
     const clientes = users.filter((u) => u.rol === "Cliente");
 
+    const prevRestaurantId = useRef(restaurantId);
+    const skipRestaurantReset = useRef(false);
+
+    useEffect(() => {
+        if (prevRestId.current === null) {
+            prevRestId.current = selectedRestId;
+            return;
+        }
+        if (prevRestId.current !== selectedRestId) {
+            setIdSucursal("");
+            setSelectedSucId("");
+            setValue("restaurantId", selectedRestId, { shouldValidate: true });
+            setValue("tableId", "");
+            prevRestId.current = selectedRestId;
+        }
+    }, [selectedRestId, setValue]);
+
+    useEffect(() => {
+        if (prevSucId.current === null) {
+            prevSucId.current = selectedSucId;
+            return;
+        }
+        if (prevSucId.current !== selectedSucId) {
+            setIdSucursal(selectedSucId);
+            setValue("id_sucursal", selectedSucId);
+            setValue("tableId", "");
+            prevSucId.current = selectedSucId;
+        }
+    }, [selectedSucId, setValue]);
+
+    const handleRestaurantPick = (restaurant) => {
+        setSelectedRestId(restaurant._id);
+        setSelectedSucId("");
+        setIdSucursal("");
+        setValue("restaurantId", restaurant._id, { shouldValidate: true });
+        setValue("tableId", "");
+        setValue("id_sucursal", "");
+    };
+
+    const handleSucursalPick = (sucursal) => {
+        setSelectedSucId(sucursal._id);
+        setIdSucursal(sucursal._id);
+        setValue("id_sucursal", sucursal._id);
+        setValue("tableId", "");
+    };
+
+    const fetchAvailability = useCallback(async () => {
+        if (!restaurantId || !fechaReserva || !horaReserva) {
+            setTableAvailability(null);
+            return;
+        }
+        try {
+            const [h, m] = horaReserva.split(":");
+            const dt = new Date(fechaReserva);
+            dt.setHours(parseInt(h), parseInt(m), 0, 0);
+            const isoStr = dt.toISOString();
+
+            const params = { id_restaurante: restaurantId, fecha_reserva: isoStr };
+            if (idSucursal) params.id_sucursal = idSucursal;
+
+            const { data } = await getTablesAvailability(params);
+            setTableAvailability(data);
+        } catch {
+            setTableAvailability(null);
+        }
+    }, [restaurantId, fechaReserva, horaReserva, idSucursal]);
+
+    useEffect(() => {
+        fetchAvailability();
+    }, [fetchAvailability]);
+
     useEffect(() => {
         if (isOpen) {
             getRestaurants();
             getUsers({ activo: true, limit: 200 });
+            const initialRestId = reservation?.restaurantId?._id || reservation?.restaurantId || restauranteId || "";
+            const initialSucId = reservation?.id_sucursal || "";
+            setSelectedRestId(initialRestId);
+            setSelectedSucId(initialSucId);
+            setIdSucursal(initialSucId);
+            prevRestId.current = null;
+            prevSucId.current = null;
+            if (reservation?.reservationDate) {
+                const localDate = fromUTCtoLocalInput(reservation.reservationDate);
+                const [datePart, timePart] = localDate.split("T");
+                const [y, mo, d] = datePart.split("-").map(Number);
+                setFechaReserva(new Date(y, mo - 1, d));
+                setHoraReserva(timePart || "");
+            } else {
+                setFechaReserva(null);
+                setHoraReserva("");
+            }
+            skipRestaurantReset.current = true;
             reset({
                 userId: reservation?.userId?._id || reservation?.userId || "",
-                restaurantId: reservation?.restaurantId?._id || reservation?.restaurantId || "",
+                restaurantId: initialRestId,
                 tableId: reservation?.tableId || "",
-                reservationDate: reservation?.reservationDate
-                    ? fromUTCtoLocalInput(reservation.reservationDate)
-                    : "",
                 peopleCount: reservation?.peopleCount || "",
                 status: reservation?.status || "Confirmed",
+                id_sucursal: initialSucId,
             });
         }
-    }, [isOpen, reservation, reset]);
+    }, [isOpen, reservation, restauranteId, reset]);
 
     const onSubmit = async (data) => {
-        // Validación de capacidad en cliente antes de enviar
+        if (!fechaReserva || !horaReserva) {
+            showError("Selecciona fecha y hora de la reservación");
+            return;
+        }
         if (mesaSeleccionada && Number(data.peopleCount) > mesaSeleccionada.capacidad) {
             showError(
                 `La mesa #${mesaSeleccionada.numero} tiene capacidad máxima de ${mesaSeleccionada.capacidad} persona(s). Reduce la cantidad o elige otra mesa.`
@@ -81,8 +218,14 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
         }
 
         try {
+            const [h, m] = horaReserva.split(":");
+            const dt = new Date(fechaReserva);
+            dt.setHours(parseInt(h), parseInt(m), 0, 0);
+            const gtOffset = dt.getTime() + 6 * 60 * 60 * 1000;
+            const isoStr = new Date(gtOffset).toISOString().replace("Z", "-06:00");
+
             await saveReservation(
-                { ...data, reservationDate: toGuatemalaISO(data.reservationDate) },
+                { ...data, reservationDate: isoStr, id_sucursal: idSucursal },
                 reservation?._id ?? null
             );
             showSuccess(isEditing ? "Reservación actualizada correctamente" : "Reservación creada correctamente");
@@ -109,7 +252,7 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
         }`;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-[#E8D8C3] max-h-[90vh] overflow-y-auto">
 
                 {/* HEADER */}
@@ -147,42 +290,95 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                     {/* Restaurante */}
                     <div>
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante *</label>
-                        <select
-                            disabled={isEditing}
-                            className={`${inputClass("restaurantId")} ${isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
-                            {...register("restaurantId", { required: "Selecciona un restaurante" })}
-                        >
-                            <option value="">Seleccionar restaurante...</option>
-                            {restaurants.map((r) => (
-                                <option key={r._id} value={r._id}>{r.nombre}</option>
-                            ))}
-                        </select>
+                        {selectedRestId && selectedRestaurantObj ? (
+                            <button type="button" disabled={isEditing} onClick={() => !isEditing && setRestPickerOpen(true)} className={`w-full flex items-center gap-2 px-4 py-2.5 border border-[#E67E22] bg-[#E67E22]/5 rounded-xl text-left transition-colors ${!isEditing ? "cursor-pointer hover:bg-[#E67E22]/10" : "cursor-not-allowed opacity-60"}`}>
+                                <div className="w-6 h-6 rounded-lg bg-[#E67E22]/20 flex items-center justify-center shrink-0">
+                                    <Store size={12} className="text-[#E67E22]" />
+                                </div>
+                                <span className="text-sm font-semibold text-[#2B2B2B] truncate flex-1">{selectedRestaurantObj.nombre}</span>
+                                {!isEditing && <ChevronDown size={14} className="text-[#6B6B6B] shrink-0" />}
+                            </button>
+                        ) : (
+                            <button type="button" onClick={() => setRestPickerOpen(true)} className={`w-full flex items-center gap-3 px-4 py-2.5 border rounded-xl text-sm transition-colors ${errors.restaurantId ? "border-red-400 bg-red-50" : "border-[#E8D8C3] bg-[#F5EFE6]/50 hover:border-[#D3C4B0]"}`}>
+                                <div className="w-8 h-8 rounded-lg bg-[#E8D8C3] flex items-center justify-center shrink-0">
+                                    <Store size={14} className="text-[#6B6B6B]" />
+                                </div>
+                                <span className="text-[#6B6B6B]">Seleccionar restaurante...</span>
+                            </button>
+                        )}
                         {isEditing && <p className="text-[10px] text-[#6B6B6B] mt-1">El restaurante no puede modificarse</p>}
                         {errors.restaurantId && <span className="text-red-500 text-xs mt-1 block">{errors.restaurantId.message}</span>}
+
+                        {/* Sucursal */}
+                        {tieneSucursales && sucursales.length > 0 && (
+                            <div className="mt-3">
+                                <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Sucursal</label>
+                                {selectedSucId && selectedSucursalObj ? (
+                                    <button type="button" disabled={isEditing} onClick={() => !isEditing && setSucPickerOpen(true)} className={`w-full flex items-center gap-2 px-4 py-2.5 border border-[#A9C7E8] bg-blue-50 rounded-xl text-left transition-colors ${!isEditing ? "cursor-pointer hover:bg-blue-100" : "cursor-not-allowed opacity-60"}`}>
+                                        <div className="w-6 h-6 rounded-lg bg-[#A9C7E8]/30 flex items-center justify-center shrink-0">
+                                            <MapPin size={12} className="text-blue-700" />
+                                        </div>
+                                        <span className="text-sm font-semibold text-[#2B2B2B] truncate flex-1">{selectedSucursalObj.nombre}</span>
+                                        {!isEditing && <ChevronDown size={14} className="text-[#6B6B6B] shrink-0" />}
+                                    </button>
+                                ) : (
+                                    <button type="button" onClick={() => setSucPickerOpen(true)} className="w-full flex items-center gap-3 px-4 py-2.5 border border-[#E8D8C3] bg-[#F5EFE6]/50 hover:border-[#D3C4B0] rounded-xl text-sm transition-colors">
+                                        <div className="w-8 h-8 rounded-lg bg-[#E8D8C3] flex items-center justify-center shrink-0">
+                                            <MapPin size={14} className="text-[#6B6B6B]" />
+                                        </div>
+                                        <span className="text-[#6B6B6B]">Seleccionar sucursal...</span>
+                                    </button>
+                                )}
+                                {isEditing && <p className="text-[10px] text-[#6B6B6B] mt-1">La sucursal no puede modificarse</p>}
+                            </div>
+                        )}
                     </div>
 
                     {/* Mesa */}
                     <div>
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Mesa *</label>
                         <select
-                            disabled={!restaurantId}
-                            className={`${inputClass("tableId")} ${!restaurantId ? "opacity-50 cursor-not-allowed" : ""}`}
+                            disabled={!restaurantId || !fechaReserva || !horaReserva}
+                            className={`${inputClass("tableId")} ${!restaurantId || !fechaReserva || !horaReserva ? "opacity-50 cursor-not-allowed" : ""}`}
                             {...register("tableId", { required: "Selecciona una mesa" })}
                         >
                             <option value="">
                                 {!restaurantId
                                     ? "Primero selecciona un restaurante"
-                                    : mesasDisponibles.length === 0
-                                        ? "Sin mesas disponibles"
-                                        : "Seleccionar mesa..."}
+                                    : !fechaReserva || !horaReserva
+                                        ? "Selecciona fecha y hora primero"
+                                        : mesasDisponibles.length === 0
+                                            ? "Sin mesas disponibles"
+                                            : "Seleccionar mesa..."}
                             </option>
                             {mesasDisponibles.map((m) => (
                                 <option key={m._id} value={m._id}>
-                                    Mesa {m.numero} — {m.ubicacion} · cap. {m.capacidad} personas · {m.estado}
+                                    Mesa {m.numero} — {m.ubicacion} · cap. {m.capacidad} · Disponible
                                 </option>
                             ))}
+                            {mesasOcupadas.length > 0 && (
+                                <optgroup label="Ocupadas">
+                                    {mesasOcupadas.map((m) => (
+                                        <option key={m._id} value={m._id} disabled>
+                                            Mesa {m.numero} — Ocupada
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            )}
                         </select>
                         {errors.tableId && <span className="text-red-500 text-xs mt-1 block">{errors.tableId.message}</span>}
+
+                        {/* Resumen de disponibilidad */}
+                        {tableAvailability && fechaReserva && horaReserva && (
+                            <div className={`flex items-center gap-1.5 mt-1.5 rounded-lg px-3 py-2 ${tableAvailability.disponibles === 0 ? "bg-red-50 border border-red-200" : "bg-green-50 border border-green-200"}`}>
+                                <p className={`text-[11px] ${tableAvailability.disponibles === 0 ? "text-red-700" : "text-green-700"}`}>
+                                    {tableAvailability.disponibles === 0
+                                        ? "No hay mesas disponibles para esta fecha y hora"
+                                        : `${tableAvailability.disponibles} de ${tableAvailability.total} mesa(s) disponible(s)`}
+                                    {mesasOcupadas.length > 0 && ` · ${mesasOcupadas.length} ocupada(s)`}
+                                </p>
+                            </div>
+                        )}
 
                         {/* Aviso de mesas en mantenimiento */}
                         {mesasEnMantenimiento.length > 0 && restaurantId && (
@@ -190,8 +386,8 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                                 <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
                                 <p className="text-[11px] text-amber-700">
                                     {mesasEnMantenimiento.length === 1
-                                        ? `La mesa #${mesasEnMantenimiento[0].numero} está en mantenimiento y no está disponible.`
-                                        : `${mesasEnMantenimiento.length} mesas en mantenimiento están ocultas.`}
+                                        ? `La mesa #${mesasEnMantenimiento[0].numero} está en mantenimiento.`
+                                        : `${mesasEnMantenimiento.length} mesas en mantenimiento.`}
                                 </p>
                             </div>
                         )}
@@ -207,39 +403,55 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                     {/* Fecha + Personas */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Fecha y Hora *</label>
-                            <input
-                                type="datetime-local"
-                                className={inputClass("reservationDate")}
-                                {...register("reservationDate", { required: "Ingresa la fecha y hora" })}
+                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Fecha *</label>
+                            <DatePicker
+                                value={fechaReserva}
+                                onChange={setFechaReserva}
+                                placeholder="Seleccionar fecha"
                             />
-                            {errors.reservationDate && <span className="text-red-500 text-xs mt-1 block">{errors.reservationDate.message}</span>}
+                            {fechaReserva && (
+                                <p className="text-[10px] text-[#E67E22] mt-1 font-semibold">
+                                    {format(fechaReserva, "EEE d MMM, yyyy", { locale: es })}
+                                </p>
+                            )}
                             <p className="text-[10px] text-[#6B6B6B] mt-1">La mesa se bloquea ±2h alrededor de esta hora</p>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Personas *</label>
-                            <input
-                                type="number"
-                                placeholder="Ej: 4"
-                                className={inputClass("peopleCount")}
-                                {...register("peopleCount", {
-                                    required: "Ingresa el número de personas",
-                                    min: { value: 1, message: "Mínimo 1 persona" },
-                                    max: { value: 20, message: "Máximo 20 personas" }
-                                })}
+                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Hora *</label>
+                            <TimePicker
+                                value={horaReserva}
+                                onChange={setHoraReserva}
+                                placeholder="Seleccionar hora"
+                                selectedDate={fechaReserva}
+                                openingTime={openingTimeAdmin}
+                                closingTime={closingTimeAdmin}
                             />
-                            {errors.peopleCount && <span className="text-red-500 text-xs mt-1 block">{errors.peopleCount.message}</span>}
-
-                            {/* Advertencia dinámica de capacidad excedida */}
-                            {excedCapacidad && (
-                                <div className="flex items-center gap-1 mt-1">
-                                    <AlertTriangle size={12} className="text-amber-500 shrink-0" />
-                                    <span className="text-[11px] text-amber-700">
-                                        Excede la capacidad de la mesa ({mesaSeleccionada.capacidad} máx.)
-                                    </span>
-                                </div>
-                            )}
                         </div>
+                    </div>
+
+                    {/* Personas */}
+                    <div>
+                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Personas *</label>
+                        <input
+                            type="number"
+                            placeholder="Ej: 4"
+                            className={inputClass("peopleCount")}
+                            {...register("peopleCount", {
+                                required: "Ingresa el número de personas",
+                                min: { value: 1, message: "Mínimo 1 persona" },
+                                max: { value: 20, message: "Máximo 20 personas" }
+                            })}
+                        />
+                        {errors.peopleCount && <span className="text-red-500 text-xs mt-1 block">{errors.peopleCount.message}</span>}
+
+                        {excedCapacidad && (
+                            <div className="flex items-center gap-1 mt-1">
+                                <AlertTriangle size={12} className="text-amber-500 shrink-0" />
+                                <span className="text-[11px] text-amber-700">
+                                    Excede la capacidad de la mesa ({mesaSeleccionada.capacidad} máx.)
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Estado — solo en edición */}
@@ -277,6 +489,20 @@ export const ReservationModal = ({ isOpen, onClose, reservation = null, onSaved 
                     </div>
                 </div>
             </div>
+
+            <RestaurantPickerModal
+                isOpen={restPickerOpen}
+                onClose={() => setRestPickerOpen(false)}
+                onSelect={handleRestaurantPick}
+                selectedId={selectedRestId}
+            />
+            <SucursalPickerModal
+                isOpen={sucPickerOpen}
+                onClose={() => setSucPickerOpen(false)}
+                onSelect={handleSucursalPick}
+                sucursales={selectedRestaurantObj?.sucursales ?? []}
+                selectedId={selectedSucId}
+            />
         </div>
     );
 };

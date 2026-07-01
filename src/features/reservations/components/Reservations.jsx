@@ -1,10 +1,13 @@
-import { useState } from "react";
-import { Plus, Search, Pencil, PowerOff, User, CalendarDays, Filter, Store, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Pencil, PowerOff, User, CalendarDays, Store, Users, CheckCircle } from "lucide-react";
 import { ReservationModal } from "./ReservationModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
+import { RestaurantFilterBar } from "../../../shared/components/ui/RestaurantFilterBar";
 import { useReservations } from "../hooks/useReservations";
 import { useReservationsStore } from "../store/reservationsStore";
+import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { showConfirmToast } from "../../../shared/utils/confirmToast";
+import { showSuccess, showError } from "../../../shared/utils/toast";
 
 const statusColor = {
     Confirmed: "bg-[#A9C7E8] text-blue-900",
@@ -35,20 +38,44 @@ const formatDate = (iso) => {
 
 export const Reservations = () => {
     const { reservations, loading, getReservations } = useReservations();
-    const { deleteReservation } = useReservationsStore();
+    const { deleteReservation, checkInReservation } = useReservationsStore();
+    const restaurants = useRestaurantsStore((state) => state.restaurants);
 
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedReservation, setSelectedReservation] = useState(null);
     const [search, setSearch] = useState("");
+    const [filterRestaurant, setFilterRestaurant] = useState("");
+    const [filterSucursal, setFilterSucursal] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
     const [page, setPage] = useState(1);
 
+    const selectedRestaurant = restaurants.find((r) => r._id === filterRestaurant);
+    const tieneSucursales = selectedRestaurant?.tiene_sucursales ?? false;
+
+    useEffect(() => {
+        setFilterSucursal("");
+    }, [filterRestaurant]);
+
+    useEffect(() => {
+        if (filterRestaurant) {
+            const params = {};
+            if (filterSucursal) params.id_sucursal = filterSucursal;
+            getReservations(params);
+        }
+    }, [filterRestaurant, filterSucursal]);
+
     const filtered = (reservations ?? []).filter((r) => {
+        const matchRestaurant = filterRestaurant
+            ? r.restaurantId?._id === filterRestaurant
+            : true;
+        const matchSucursal = filterSucursal
+            ? r.id_sucursal === filterSucursal
+            : true;
         const matchSearch =
             r.userId?.nombre?.toLowerCase().includes(search.toLowerCase()) ||
             r.restaurantId?.nombre?.toLowerCase().includes(search.toLowerCase());
         const matchStatus = filterStatus ? r.status === filterStatus : true;
-        return matchSearch && matchStatus;
+        return matchRestaurant && matchSucursal && matchSearch && matchStatus;
     });
 
     const totalPages = Math.ceil(filtered.length / LIMIT);
@@ -68,7 +95,21 @@ export const Reservations = () => {
         });
     };
 
-    const selectClass = "outline-none text-sm bg-transparent text-[#6B6B6B] cursor-pointer";
+    const handleCheckIn = (r) => {
+        showConfirmToast({
+            title: "Registrar asistencia",
+            message: `¿Marcar asistencia de ${r.userId?.nombre ?? "este cliente"}?`,
+            type: "checkin",
+            onConfirm: async () => {
+                try {
+                    await checkInReservation(r._id);
+                    showSuccess("Asistencia registrada");
+                } catch (err) {
+                    showError(err.response?.data?.message || "Error al registrar asistencia");
+                }
+            },
+        });
+    };
 
     return (
         <div className="space-y-6 max-w-full px-1 sm:px-0">
@@ -87,37 +128,28 @@ export const Reservations = () => {
                 </button>
             </div>
 
-            {/* FILTROS (Compactos y alineados a la izquierda) */}
-            <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center pb-4 border-b border-[#E8D8C3]">
-                {/* Input de Búsqueda */}
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 w-full sm:w-auto sm:flex-1 sm:max-w-xs shadow-sm focus-within:border-[#E67E22] transition-colors">
-                    <Search size={16} className="text-[#6B6B6B] shrink-0" />
-                    <input
-                        value={search}
-                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                        className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B]"
-                        placeholder="Buscar por cliente o restaurante..."
-                    />
-                </div>
-
-                {/* Contenedor de Select para mantener consistencia en celulares */}
-                <div className="flex flex-row gap-2 w-full sm:w-auto">
-                    {/* Filtro por Estado */}
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 shadow-sm flex-1 sm:flex-none focus-within:border-[#E67E22] transition-colors">
-                        <Filter size={16} className="text-[#6B6B6B] shrink-0" />
-                        <select
-                            value={filterStatus}
-                            onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-                            className={`${selectClass} w-full cursor-pointer`}
-                        >
-                            <option value="">Todos los estados</option>
-                            <option value="Confirmed">Confirmada</option>
-                            <option value="Attended">Atendida</option>
-                            <option value="Cancelled">Cancelada</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
+            {/* FILTROS */}
+            <RestaurantFilterBar
+                filterRestaurant={filterRestaurant}
+                onRestaurantChange={setFilterRestaurant}
+                filterSucursal={filterSucursal}
+                onSucursalChange={setFilterSucursal}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar por cliente..."
+                showStatusFilter={true}
+                filterStatus={filterStatus}
+                onStatusChange={setFilterStatus}
+                statusOptions={[
+                    { value: "", label: "Todos los estados" },
+                    { value: "Confirmed", label: "Confirmada" },
+                    { value: "Attended", label: "Atendida" },
+                    { value: "Cancelled", label: "Cancelada" },
+                ]}
+                onPageReset={setPage}
+                emptyMessage="Seleccioná un restaurante para ver sus reservaciones"
+                showEmptyState={false}
+            />
 
             {/* VISTA EN TARJETAS PARA CELULARES Y IPAD (Móvil hasta lg:hidden) */}
             <div className="block lg:hidden space-y-3">
@@ -144,6 +176,11 @@ export const Reservations = () => {
                             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${statusColor[r.status] ?? "bg-[#D6D6D6] text-gray-700"}`}>
                                 {statusLabel[r.status] ?? r.status}
                             </span>
+                            {r.asistio && (
+                                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 bg-green-100 text-green-700">
+                                    Asistió
+                                </span>
+                            )}
                         </div>
 
                         {/* Detalles Intermedios */}
@@ -173,6 +210,15 @@ export const Reservations = () => {
 
                         {/* Acciones Inferiores */}
                         <div className="flex items-center justify-end gap-1 pt-1">
+                            {r.status === "Confirmed" && !r.asistio && (
+                                <button
+                                    onClick={() => handleCheckIn(r)}
+                                    className="p-2 rounded-xl bg-green-50 text-green-600 transition-colors"
+                                    title="Registrar asistencia"
+                                >
+                                    <CheckCircle size={15} />
+                                </button>
+                            )}
                             <button
                                 onClick={() => handleEdit(r)}
                                 className="p-2 rounded-xl bg-[#F5EFE6] text-[#E67E22] transition-colors"
@@ -242,6 +288,11 @@ export const Reservations = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-2">
+                                        {r.status === "Confirmed" && !r.asistio && (
+                                            <button onClick={() => handleCheckIn(r)} className="p-2 rounded-lg hover:bg-green-50 text-green-600 transition-colors" title="Registrar asistencia">
+                                                <CheckCircle size={15} />
+                                            </button>
+                                        )}
                                         <button onClick={() => handleEdit(r)} className="p-2 rounded-lg hover:bg-[#F2E6D9] text-[#E67E22] transition-colors" title="Editar">
                                             <Pencil size={15} />
                                         </button>

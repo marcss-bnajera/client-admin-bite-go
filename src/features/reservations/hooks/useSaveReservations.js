@@ -11,6 +11,7 @@ export const useSaveReservation = () => {
                 status: data.status,
                 reservationDate: data.reservationDate,
                 tableId: data.tableId,
+                id_sucursal: data.id_sucursal || "",
             };
 
             await updateReservation(reservationId, payload);
@@ -21,6 +22,7 @@ export const useSaveReservation = () => {
                 tableId: data.tableId,
                 reservationDate: data.reservationDate,
                 peopleCount: Number(data.peopleCount),
+                id_sucursal: data.id_sucursal || "",
             };
             await createReservation(payload);
         }
