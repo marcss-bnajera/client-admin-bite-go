@@ -15,17 +15,14 @@ export const useSaveRestaurant = () => {
                 telefono: data.telefono,
                 email: data.email,
             },
+            tiene_sucursales: data.tiene_sucursales ?? false,
             ...(restaurantId && { activo: data.activo }),
         };
 
-        try {
-            if (restaurantId) {
-                await updateRestaurant(restaurantId, payload);
-            } else {
-                await createRestaurant(payload);
-            }
-        } catch (error) {
-            throw error;
+        if (restaurantId) {
+            return await updateRestaurant(restaurantId, payload);
+        } else {
+            return await createRestaurant(payload);
         }
     };
 
