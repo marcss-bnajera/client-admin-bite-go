@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Search, Pencil, PowerOff, Table, MapPin, Phone, Clock, Mail } from "lucide-react";
 import { RestaurantModal } from "./RestaurantModal";
+import { SucursalModal } from "./SucursalModal";
 import { TableModal } from "../../tables/components/TableModal.jsx";
 import { Pagination } from "../../../shared/components/ui/Pagination";
 import { useRestaurants } from "../hooks/useRestaurants";
@@ -9,7 +10,7 @@ import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const LIMIT = 6;
 
-const RestaurantCard = ({ restaurant: r, onEdit, onToggleActive, onAddTable }) => (
+const RestaurantCard = ({ restaurant: r, onEdit, onToggleActive, onAddTable, onManageSucursales }) => (
     <div className="bg-white rounded-2xl border border-[#E8D8C3] shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow flex flex-col justify-between min-w-0 w-full">
         <div>
             <div className="flex items-start justify-between mb-3 gap-2">
@@ -23,10 +24,22 @@ const RestaurantCard = ({ restaurant: r, onEdit, onToggleActive, onAddTable }) =
             </div>
 
             <div className="space-y-1.5 mb-4 min-w-0">
-                <div className="flex items-start gap-2 text-sm text-[#6B6B6B] min-w-0">
-                    <MapPin size={13} className="text-[#E67E22] shrink-0 mt-0.5" />
-                    <span className="break-words line-clamp-2 text-xs sm:text-sm">{r.direccion?.texto}</span>
-                </div>
+                {r.tiene_sucursales ? (
+                    <div className="flex items-center gap-2 text-sm text-[#6B6B6B] min-w-0">
+                        <MapPin size={13} className="text-[#E67E22] shrink-0" />
+                        <span className="truncate text-xs sm:text-sm">
+                            {(r.sucursales?.length ?? 0) === 0
+                                ? "Cadena (sin sucursales aún)"
+                                : `Cadena (${r.sucursales.length} sucursal${r.sucursales.length !== 1 ? "es" : ""})`
+                            }
+                        </span>
+                    </div>
+                ) : (
+                    <div className="flex items-start gap-2 text-sm text-[#6B6B6B] min-w-0">
+                        <MapPin size={13} className="text-[#E67E22] shrink-0 mt-0.5" />
+                        <span className="break-words line-clamp-2 text-xs sm:text-sm">{r.direccion?.texto}</span>
+                    </div>
+                )}
                 <div className="flex items-center gap-2 text-sm text-[#6B6B6B] min-w-0">
                     <Clock size={13} className="text-[#E67E22] shrink-0" />
                     <span className="truncate text-xs sm:text-sm">{r.horarios_atencion}</span>
@@ -42,7 +55,27 @@ const RestaurantCard = ({ restaurant: r, onEdit, onToggleActive, onAddTable }) =
             </div>
 
             <div className="flex items-center gap-1.5 mb-4 flex-wrap">
-                <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-[11px] sm:text-xs font-semibold px-2 py-1 rounded-lg shrink-0">{r.mesas?.length ?? 0} mesas</span>
+                {r.tiene_sucursales ? (
+                    <button
+                        onClick={() => onManageSucursales(r)}
+                        className={`text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg shrink-0 transition-colors cursor-pointer ${
+                            (r.sucursales?.length ?? 0) === 0
+                                ? "bg-[#E67E22] text-white hover:bg-[#D35400] animate-pulse"
+                                : "bg-[#E67E22]/10 border border-[#E67E22]/30 text-[#D35400] hover:bg-[#E67E22]/20"
+                        }`}
+                        title="Gestionar sucursales"
+                    >
+                        {(r.sucursales?.length ?? 0) === 0
+                            ? "+ Agregar sucursales"
+                            : `${r.sucursales.length} sucursal${r.sucursales.length !== 1 ? "es" : ""}`
+                        }
+                    </button>
+                ) : null}
+                <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-[11px] sm:text-xs font-semibold px-2 py-1 rounded-lg shrink-0">
+                    {r.tiene_sucursales
+                        ? (r.sucursales?.reduce((acc, s) => acc + (s.mesas?.length ?? 0), 0) ?? 0)
+                        : (r.mesas?.length ?? 0)} mesas
+                </span>
                 <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-[11px] sm:text-xs font-semibold px-2 py-1 rounded-lg shrink-0">{r.eventos?.length ?? 0} eventos</span>
                 <span className="bg-[#F5EFE6] border border-[#E8D8C3] text-[#2B2B2B] text-[11px] sm:text-xs font-semibold px-2 py-1 rounded-lg shrink-0">Precio prom: <span className="text-[#E67E22] font-bold">Q{r.precio_promedio}</span></span>
             </div>
@@ -72,6 +105,7 @@ export const Restaurants = () => {
 
     const [modalOpen, setModalOpen] = useState(false);
     const [tableModalOpen, setTableModalOpen] = useState(false);
+    const [sucursalModalOpen, setSucursalModalOpen] = useState(false);
     const [selectedRestaurant, setSelectedRestaurant] = useState(null);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
@@ -87,6 +121,17 @@ export const Restaurants = () => {
     const handleNew = () => { setSelectedRestaurant(null); setModalOpen(true); };
     const handleEdit = (r) => { setSelectedRestaurant(r); setModalOpen(true); };
     const handleAddTable = (r) => { setSelectedRestaurant(r); setTableModalOpen(true); };
+    const handleManageSucursales = (r) => { setSelectedRestaurant(r); setSucursalModalOpen(true); };
+
+    const handleRestaurantSaved = (savedRestaurant) => {
+        getRestaurants();
+        if (savedRestaurant?.tiene_sucursales && !savedRestaurant?._id?.startsWith?.("temp")) {
+            setTimeout(() => {
+                setSelectedRestaurant(savedRestaurant);
+                setSucursalModalOpen(true);
+            }, 300);
+        }
+    };
 
     const handleToggleActive = (r) => {
         if (r.activo) {
@@ -137,7 +182,7 @@ export const Restaurants = () => {
                 ) : paginated.length === 0 ? (
                     <p className="text-[#6B6B6B] text-sm col-span-1 md:col-span-2 xl:col-span-3 text-center py-12 font-medium">No hay restaurantes registrados</p>
                 ) : paginated.map((r) => (
-                    <RestaurantCard key={r._id} restaurant={r} onEdit={handleEdit} onToggleActive={handleToggleActive} onAddTable={handleAddTable} />
+                    <RestaurantCard key={r._id} restaurant={r} onEdit={handleEdit} onToggleActive={handleToggleActive} onAddTable={handleAddTable} onManageSucursales={handleManageSucursales} />
                 ))}
             </div>
 
@@ -157,14 +202,21 @@ export const Restaurants = () => {
                 isOpen={modalOpen}
                 onClose={() => { setModalOpen(false); setSelectedRestaurant(null); }}
                 restaurant={selectedRestaurant}
-                onSaved={() => getRestaurants()}
+                onSaved={handleRestaurantSaved}
+            />
+
+            <SucursalModal
+                key={selectedRestaurant?._id ? `suc-${selectedRestaurant._id}` : "suc-new"}
+                isOpen={sucursalModalOpen}
+                onClose={() => { setSucursalModalOpen(false); setSelectedRestaurant(null); }}
+                restaurant={selectedRestaurant}
             />
 
             <TableModal
                 key={selectedRestaurant?._id ? `table-${selectedRestaurant._id}` : "table-new"}
                 isOpen={tableModalOpen}
                 onClose={() => { setTableModalOpen(false); setSelectedRestaurant(null); }}
-                restaurantId={selectedRestaurant?._id}
+                restauranteId={selectedRestaurant?._id}
                 restaurantName={selectedRestaurant?.nombre}
                 existingTables={selectedRestaurant?.mesas ?? []}
             />
