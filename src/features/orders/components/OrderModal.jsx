@@ -1,5 +1,5 @@
-import { X, ClipboardList, Plus, Trash2, AlertTriangle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { X, ClipboardList, Plus, Trash2, AlertTriangle, Store, MapPin, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useSaveOrder } from "../hooks/useSaveOrder";
 import { useOrdersStore } from "../store/ordersStore";
@@ -7,12 +7,15 @@ import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { useProductsStore } from "../../products/store/productsStore";
 import { useUsersStore } from "../../users/store/usersStore";
 import { showSuccess, showError } from "../../../shared/utils/toast";
+import { RestaurantPickerModal } from "../../../shared/components/ui/RestaurantPickerModal";
+import { SucursalPickerModal } from "../../../shared/components/ui/SucursalPickerModal";
 
 const ESTADOS_EDITABLES = ["Pendiente"];
 
 const buildForm = (order) => ({
     id_usuario_cliente: order?.id_usuario_cliente?._id ?? order?.id_usuario_cliente ?? "",
     id_restaurante: order?.id_restaurante?._id ?? order?.id_restaurante ?? "",
+    id_sucursal: order?.id_sucursal ?? "",
     id_mesero_asignado: order?.id_mesero_asignado?._id ?? order?.id_mesero_asignado ?? "",
     id_repartidor_asignado: order?.id_repartidor_asignado?._id ?? order?.id_repartidor_asignado ?? "",
     tipo_servicio: order?.tipo_servicio ?? "Comer aquí",
@@ -21,7 +24,7 @@ const buildForm = (order) => ({
     items: order?.items ?? [],
 });
 
-export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
+export const OrderModal = ({ isOpen, onClose, order = null, restauranteId = null, onSaved }) => {
     const isEditing = !!order;
     const { saveOrder } = useSaveOrder();
     const loading = useOrdersStore((state) => state.loading);
@@ -38,6 +41,23 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
 
     const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm();
 
+    const [selectedRestId, setSelectedRestId] = useState("");
+    const [selectedSucId, setSelectedSucId] = useState("");
+    const [restPickerOpen, setRestPickerOpen] = useState(false);
+    const [sucPickerOpen, setSucPickerOpen] = useState(false);
+    const prevRestId = useRef(null);
+    const prevSucId = useRef(null);
+
+    const selectedRestaurantObj = useMemo(
+        () => restaurants.find((r) => r._id === selectedRestId),
+        [restaurants, selectedRestId]
+    );
+    const tieneSucursales = selectedRestaurantObj?.tiene_sucursales && selectedRestaurantObj?.sucursales?.length > 0;
+    const selectedSucursalObj = useMemo(
+        () => tieneSucursales ? selectedRestaurantObj.sucursales.find((s) => s._id === selectedSucId) : null,
+        [selectedRestaurantObj, selectedSucId, tieneSucursales]
+    );
+
     useEffect(() => {
         if (isOpen) {
             getRestaurants();
@@ -49,6 +69,12 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
     useEffect(() => {
         if (!isOpen) return;
         const built = buildForm(order);
+        const initialRestId = order?.id_restaurante?._id || order?.id_restaurante || restauranteId || "";
+        const initialSucId = order?.id_sucursal || "";
+        setSelectedRestId(initialRestId);
+        setSelectedSucId(initialSucId);
+        prevRestId.current = null;
+        prevSucId.current = null;
         setForm(built);
         setNuevoItem({ id_producto: "", cantidad: 1, notas: "" });
         setFormErrors({});
@@ -58,6 +84,44 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
         });
     }, [isOpen, order?._id]);
 
+    useEffect(() => {
+        if (prevRestId.current === null) {
+            prevRestId.current = selectedRestId;
+            return;
+        }
+        if (prevRestId.current !== selectedRestId) {
+            setForm((prev) => ({ ...prev, id_restaurante: selectedRestId, id_sucursal: "" }));
+            setSelectedSucId("");
+            setValue("id_restaurante", selectedRestId, { shouldValidate: true });
+            if (selectedRestId) setFormErrors((prev) => ({ ...prev, id_restaurante: "" }));
+            prevRestId.current = selectedRestId;
+        }
+    }, [selectedRestId, setValue]);
+
+    useEffect(() => {
+        if (prevSucId.current === null) {
+            prevSucId.current = selectedSucId;
+            return;
+        }
+        if (prevSucId.current !== selectedSucId) {
+            setForm((prev) => ({ ...prev, id_sucursal: selectedSucId }));
+            prevSucId.current = selectedSucId;
+        }
+    }, [selectedSucId]);
+
+    const handleRestaurantPick = (restaurant) => {
+        setSelectedRestId(restaurant._id);
+        setSelectedSucId("");
+        setForm((prev) => ({ ...prev, id_restaurante: restaurant._id, id_sucursal: "" }));
+        setValue("id_restaurante", restaurant._id, { shouldValidate: true });
+        if (formErrors.id_restaurante) setFormErrors((prev) => ({ ...prev, id_restaurante: "" }));
+    };
+
+    const handleSucursalPick = (sucursal) => {
+        setSelectedSucId(sucursal._id);
+        setForm((prev) => ({ ...prev, id_sucursal: sucursal._id }));
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         if (name === "tipo_servicio") {
@@ -65,7 +129,7 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
             return;
         }
         setForm((prev) => ({ ...prev, [name]: value }));
-        if (name === "id_usuario_cliente" || name === "id_restaurante") {
+        if (name === "id_usuario_cliente") {
             setValue(name, value, { shouldValidate: true });
             if (value) setFormErrors((prev) => ({ ...prev, [name]: "" }));
         }
@@ -153,7 +217,7 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-[#E8D8C3] max-h-[90vh] overflow-y-auto">
 
                 {/* HEADER */}
@@ -207,20 +271,47 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
                             {/* Restaurante */}
                             <div>
                                 <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante *</label>
-                                <select
-                                    name="id_restaurante"
-                                    value={form.id_restaurante}
-                                    onChange={handleChange}
-                                    disabled={isEditing}
-                                    className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${!isEditing && formErrors.id_restaurante ? "border-red-400" : "border-[#E8D8C3]"}`}
-                                >
-                                    <option value="">Seleccionar restaurante...</option>
-                                    {restaurants.map((r) => (
-                                        <option key={r._id} value={r._id}>{r.nombre}</option>
-                                    ))}
-                                </select>
+                                {selectedRestId && selectedRestaurantObj ? (
+                                    <button type="button" disabled={isEditing} onClick={() => !isEditing && setRestPickerOpen(true)} className={`w-full flex items-center gap-2 px-4 py-2.5 border border-[#E67E22] bg-[#E67E22]/5 rounded-xl text-left transition-colors ${!isEditing ? "cursor-pointer hover:bg-[#E67E22]/10" : "cursor-not-allowed opacity-60"}`}>
+                                        <div className="w-6 h-6 rounded-lg bg-[#E67E22]/20 flex items-center justify-center shrink-0">
+                                            <Store size={12} className="text-[#E67E22]" />
+                                        </div>
+                                        <span className="text-sm font-semibold text-[#2B2B2B] truncate flex-1">{selectedRestaurantObj.nombre}</span>
+                                        {!isEditing && <ChevronDown size={14} className="text-[#6B6B6B] shrink-0" />}
+                                    </button>
+                                ) : (
+                                    <button type="button" onClick={() => setRestPickerOpen(true)} className={`w-full flex items-center gap-3 px-4 py-2.5 border rounded-xl text-sm transition-colors ${!isEditing && formErrors.id_restaurante ? "border-red-400 bg-red-50" : "border-[#E8D8C3] bg-[#F5EFE6]/50 hover:border-[#D3C4B0]"}`}>
+                                        <div className="w-8 h-8 rounded-lg bg-[#E8D8C3] flex items-center justify-center shrink-0">
+                                            <Store size={14} className="text-[#6B6B6B]" />
+                                        </div>
+                                        <span className="text-[#6B6B6B]">Seleccionar restaurante...</span>
+                                    </button>
+                                )}
                                 {!isEditing && formErrors.id_restaurante && <p className="text-[10px] text-red-500 mt-1">{formErrors.id_restaurante}</p>}
                             </div>
+
+                            {/* Sucursal */}
+                            {tieneSucursales && (
+                                <div>
+                                    <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Sucursal *</label>
+                                    {selectedSucId && selectedSucursalObj ? (
+                                        <button type="button" disabled={isEditing} onClick={() => !isEditing && setSucPickerOpen(true)} className={`w-full flex items-center gap-2 px-4 py-2.5 border border-[#A9C7E8] bg-blue-50 rounded-xl text-left transition-colors ${!isEditing ? "cursor-pointer hover:bg-blue-100" : "cursor-not-allowed opacity-60"}`}>
+                                            <div className="w-6 h-6 rounded-lg bg-[#A9C7E8]/30 flex items-center justify-center shrink-0">
+                                                <MapPin size={12} className="text-blue-700" />
+                                            </div>
+                                            <span className="text-sm font-semibold text-[#2B2B2B] truncate flex-1">{selectedSucursalObj.nombre}</span>
+                                            {!isEditing && <ChevronDown size={14} className="text-[#6B6B6B] shrink-0" />}
+                                        </button>
+                                    ) : (
+                                        <button type="button" onClick={() => setSucPickerOpen(true)} className="w-full flex items-center gap-3 px-4 py-2.5 border border-[#E8D8C3] bg-[#F5EFE6]/50 hover:border-[#D3C4B0] rounded-xl text-sm transition-colors">
+                                            <div className="w-8 h-8 rounded-lg bg-[#E8D8C3] flex items-center justify-center shrink-0">
+                                                <MapPin size={14} className="text-[#6B6B6B]" />
+                                            </div>
+                                            <span className="text-[#6B6B6B]">Seleccionar sucursal...</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Tipo de servicio */}
                             <div>
@@ -420,6 +511,20 @@ export const OrderModal = ({ isOpen, onClose, order = null, onSaved }) => {
                     </div>
                 </form>
             </div>
+
+            <RestaurantPickerModal
+                isOpen={restPickerOpen}
+                onClose={() => setRestPickerOpen(false)}
+                onSelect={handleRestaurantPick}
+                selectedId={selectedRestId}
+            />
+            <SucursalPickerModal
+                isOpen={sucPickerOpen}
+                onClose={() => setSucPickerOpen(false)}
+                onSelect={handleSucursalPick}
+                sucursales={selectedRestaurantObj?.sucursales ?? []}
+                selectedId={selectedSucId}
+            />
         </div>
     );
 };

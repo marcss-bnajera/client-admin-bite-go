@@ -12,9 +12,9 @@ export const useOrdersStore = create((set, get) => ({
     loading: false,
     error: null,
 
-    getOrders: async (params) => {
+    getOrders: async (params, silent = false) => {
         try {
-            set({ loading: true, error: null });
+            if (!silent) set({ loading: true, error: null });
             const response = await getOrdersRequest(params);
             set({ orders: response.data.orders ?? [], loading: false });
         } catch (error) {

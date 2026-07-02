@@ -1,9 +1,12 @@
-import { useState } from "react";
-import { Plus, Search, Filter, Eye, Pencil, Trash2, PowerOff, User, Store, Armchair, Bike, ShoppingBag } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Pencil, Trash2, PowerOff, User, Store, Armchair, Bike, ShoppingBag } from "lucide-react";
 import { OrderModal } from "./OrderModal";
+import { OrderDetailModal } from "./OrderDetailModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
+import { RestaurantFilterBar } from "../../../shared/components/ui/RestaurantFilterBar";
 import { useOrders } from "../hooks/useOrders";
 import { useOrdersStore } from "../store/ordersStore";
+import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const estadoColor = {
@@ -45,21 +48,49 @@ const estados = ["Pendiente", "Preparacion", "Listo", "Servido", "Entregado", "C
 export const Orders = () => {
     const { orders, loading, getOrders } = useOrders();
     const { deleteOrder, activateOrder } = useOrdersStore();
+    const restaurants = useRestaurantsStore((state) => state.restaurants);
 
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [detailOpen, setDetailOpen] = useState(false);
+    const [detailOrder, setDetailOrder] = useState(null);
     const [search, setSearch] = useState("");
+    const [filterRestaurant, setFilterRestaurant] = useState("");
+    const [filterSucursal, setFilterSucursal] = useState("");
     const [filterEstado, setFilterEstado] = useState("");
     const [filterActivo, setFilterActivo] = useState("activo");
     const [page, setPage] = useState(1);
 
+    const selectedRestaurant = restaurants.find((r) => r._id === filterRestaurant);
+    const tieneSucursales = selectedRestaurant?.tiene_sucursales ?? false;
+
+    useEffect(() => {
+        setFilterSucursal("");
+    }, [filterRestaurant]);
+
+    useEffect(() => {
+        if (filterRestaurant) {
+            const params = {};
+            if (filterActivo === "activo") params.activo = true;
+            else if (filterActivo === "inactivo") params.activo = false;
+            if (filterSucursal) params.id_sucursal = filterSucursal;
+            getOrders(params);
+        }
+    }, [filterRestaurant, filterActivo, filterSucursal]);
+
     const filtered = (orders ?? []).filter((o) => {
+        const matchRestaurant = filterRestaurant
+            ? o.id_restaurante?._id === filterRestaurant
+            : true;
+        const matchSucursal = filterSucursal
+            ? o.id_sucursal === filterSucursal
+            : true;
         const q = search.toLowerCase();
         const matchSearch =
-            o.id_usuario_cliente?.nombre?.toLowerCase().includes(q) ||
+            o.cliente_nombre?.toLowerCase().includes(q) ||
             o.id_restaurante?.nombre?.toLowerCase().includes(q);
         const matchEstado = filterEstado ? o.estado === filterEstado : true;
-        return matchSearch && matchEstado;
+        return matchRestaurant && matchSucursal && matchSearch && matchEstado;
     });
 
     const totalPages = Math.ceil(filtered.length / LIMIT);
@@ -67,35 +98,37 @@ export const Orders = () => {
 
     const handleNew = () => { setSelectedOrder(null); setModalOpen(true); };
     const handleEdit = (order) => { setSelectedOrder(order); setModalOpen(true); };
+    const handleDetail = (order) => { setDetailOrder(order); setDetailOpen(true); };
 
-    const handleActivoChange = (e) => {
-        const val = e.target.value;
+    const handleActivoChange = (val) => {
         setFilterActivo(val);
         setPage(1);
-        if (val === "activo") getOrders({ activo: true });
-        else if (val === "inactivo") getOrders({ activo: false });
-        else getOrders();
+        if (filterRestaurant) {
+            const params = {};
+            if (val === "activo") params.activo = true;
+            else if (val === "inactivo") params.activo = false;
+            if (filterSucursal) params.id_sucursal = filterSucursal;
+            getOrders(params);
+        }
     };
 
     const handleToggle = (o) => {
         if (o.activo) {
             showConfirmToast({
                 title: "Desactivar pedido",
-                message: `¿Desactivar el pedido de ${o.id_usuario_cliente?.nombre ?? "este cliente"}?`,
+                message: `¿Desactivar el pedido de ${o.cliente_nombre ?? "este cliente"}?`,
                 type: "deactivate",
                 onConfirm: () => deleteOrder(o._id),
             });
         } else {
             showConfirmToast({
                 title: "Reactivar pedido",
-                message: `¿Reactivar el pedido de ${o.id_usuario_cliente?.nombre ?? "este cliente"}?`,
+                message: `¿Reactivar el pedido de ${o.cliente_nombre ?? "este cliente"}?`,
                 type: "activate",
                 onConfirm: () => activateOrder(o._id),
             });
         }
     };
-
-    const selectClass = "outline-none text-sm bg-transparent text-[#6B6B6B] cursor-pointer";
 
     return (
         <div className="space-y-6 max-w-full px-1 sm:px-0">
@@ -115,39 +148,28 @@ export const Orders = () => {
             </div>
 
             {/* FILTROS */}
-            <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center pb-4 border-b border-[#E8D8C3]">
-                {/* Input de Búsqueda */}
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 w-full sm:w-auto sm:flex-1 sm:max-w-xs shadow-sm focus-within:border-[#E67E22] transition-colors">
-                    <Search size={16} className="text-[#6B6B6B] shrink-0" />
-                    <input
-                        value={search}
-                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                        className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B]"
-                        placeholder="Buscar por cliente o restaurante..."
-                    />
-                </div>
-
-                {/* Contenedor de Selects en Móvil */}
-                <div className="flex flex-row gap-2 w-full sm:w-auto">
-                    {/* Filtro Estado */}
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 shadow-sm flex-1 sm:flex-none focus-within:border-[#E67E22] transition-colors">
-                        <Filter size={16} className="text-[#6B6B6B] shrink-0" />
-                        <select value={filterEstado} onChange={(e) => { setFilterEstado(e.target.value); setPage(1); }} className={`${selectClass} w-full`}>
-                            <option value="">Todos los estados</option>
-                            {estados.map((e) => <option key={e} value={e}>{e}</option>)}
-                        </select>
-                    </div>
-
-                    {/* Filtro Activo */}
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 shadow-sm flex-1 sm:flex-none focus-within:border-[#E67E22] transition-colors">
-                        <select value={filterActivo} onChange={handleActivoChange} className={`${selectClass} w-full`}>
-                            <option value="">Todos</option>
-                            <option value="activo">Activos</option>
-                            <option value="inactivo">Inactivos</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
+            <RestaurantFilterBar
+                filterRestaurant={filterRestaurant}
+                onRestaurantChange={setFilterRestaurant}
+                filterSucursal={filterSucursal}
+                onSucursalChange={setFilterSucursal}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar por cliente..."
+                showActiveFilter={true}
+                filterActivo={filterActivo}
+                onActivoChange={handleActivoChange}
+                showStatusFilter={true}
+                filterStatus={filterEstado}
+                onStatusChange={setFilterEstado}
+                statusOptions={[
+                    { value: "", label: "Todos los estados" },
+                    ...estados.map((e) => ({ value: e, label: e })),
+                ]}
+                onPageReset={setPage}
+                emptyMessage="Seleccioná un restaurante para ver sus pedidos"
+                showEmptyState={false}
+            />
 
             {/* VISTA EN TARJETAS PARA CELULARES*/}
             <div className="block lg:hidden space-y-3">
@@ -158,7 +180,8 @@ export const Orders = () => {
                 ) : paginated.map((o) => (
                     <div
                         key={o._id}
-                        className={`bg-white rounded-2xl p-4 border border-[#E8D8C3] shadow-sm space-y-3 transition-colors ${!o.activo ? "opacity-55" : ""}`}
+                        onClick={() => handleDetail(o)}
+                        className={`bg-white rounded-2xl p-4 border border-[#E8D8C3] shadow-sm space-y-3 transition-colors cursor-pointer hover:border-[#E67E22] ${!o.activo ? "opacity-55" : ""}`}
                     >
                         {/* Fila superior: Cliente y Estado */}
                         <div className="flex items-start justify-between gap-2">
@@ -166,7 +189,7 @@ export const Orders = () => {
                                 <div className="w-7 h-7 rounded-full bg-[#3A2E2A] flex items-center justify-center shrink-0">
                                     <User size={12} className="text-white" />
                                 </div>
-                                <span className="text-[#2B2B2B] font-bold truncate text-sm">{o.id_usuario_cliente?.nombre || "—"}</span>
+                                <span className="text-[#2B2B2B] font-bold truncate text-sm">{o.cliente_nombre || "—"}</span>
                             </div>
                             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${estadoColor[o.estado] ?? "bg-[#D6D6D6] text-gray-700"}`}>
                                 {o.estado}
@@ -200,14 +223,15 @@ export const Orders = () => {
 
                         {/* Acciones inferiores */}
                         <div className="flex items-center justify-end gap-1 pt-1">
-                            <button onClick={() => handleEdit(o)} className="p-2 rounded-xl bg-[#F5EFE6] text-[#E67E22] transition-colors" title="Ver pedido">
-                                <Eye size={15} />
-                            </button>
-                            <button onClick={() => handleEdit(o)} className="p-2 rounded-xl bg-[#F5EFE6] text-[#E67E22] transition-colors" title="Editar estado">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleEdit(o); }}
+                                className="p-2 rounded-xl bg-[#F5EFE6] text-[#E67E22] hover:bg-[#E8D8C3] transition-colors"
+                                title="Editar pedido"
+                            >
                                 <Pencil size={15} />
                             </button>
                             <button
-                                onClick={() => handleToggle(o)}
+                                onClick={(e) => { e.stopPropagation(); handleToggle(o); }}
                                 className={`p-2 rounded-xl transition-colors ${o.activo ? "bg-red-50 text-[#C0392B]" : "bg-[#E1F5EE] text-[#0F6E56]"}`}
                                 title={o.activo ? "Desactivar pedido" : "Reactivar pedido"}
                             >
@@ -219,7 +243,7 @@ export const Orders = () => {
             </div>
 
             {/* TABLA TRADICIONAL PARA ESCRITORIO (Oculta hasta lg:block) */}
-            <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-[#E8D8C3] overflow-hidden">
+            <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-[#E8D8C3]">
                 <table className="w-full text-sm table-auto">
                     <thead className="bg-[#3A2E2A] text-white">
                         <tr>
@@ -241,14 +265,15 @@ export const Orders = () => {
                         ) : paginated.map((o, index) => (
                             <tr
                                 key={o._id}
-                                className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9] transition-colors ${!o.activo ? "opacity-55" : ""} ${index % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/50"}`}
+                                onClick={() => handleDetail(o)}
+                                className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9] transition-colors cursor-pointer ${!o.activo ? "opacity-55" : ""} ${index % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/50"}`}
                             >
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-2">
                                         <div className="w-7 h-7 rounded-full bg-[#3A2E2A] flex items-center justify-center shrink-0">
                                             <User size={12} className="text-white" />
                                         </div>
-                                        <span className="text-[#2B2B2B] font-medium">{o.id_usuario_cliente?.nombre || "—"}</span>
+                                        <span className="text-[#2B2B2B] font-medium">{o.cliente_nombre || "—"}</span>
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -261,21 +286,22 @@ export const Orders = () => {
                                 <td className="px-6 py-4 whitespace-nowrap"><AsignadoCell order={o} /></td>
                                 <td className="px-6 py-4 text-center font-semibold text-[#2B2B2B] whitespace-nowrap">{o.items?.length ?? 0}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${estadoColor[o.estado] ?? "bg-[#D6D6D6] text-gray-700"}`}>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${estadoColor[o.estado] ?? "bg-[#D6D6D6] text-gray-700"}`}>
                                         {o.estado}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 font-bold text-[#2B2B2B] whitespace-nowrap">Q{o.total?.toFixed(2) ?? "0.00"}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => handleEdit(o)} className="p-2 rounded-lg hover:bg-[#F2E6D9] text-[#E67E22] transition-colors" title="Ver pedido">
-                                            <Eye size={15} />
-                                        </button>
-                                        <button onClick={() => handleEdit(o)} className="p-2 rounded-lg hover:bg-[#F2E6D9] text-[#E67E22] transition-colors" title="Editar estado">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleEdit(o); }}
+                                            className="p-2 rounded-lg hover:bg-[#F2E6D9] text-[#E67E22] transition-colors"
+                                            title="Editar pedido"
+                                        >
                                             <Pencil size={15} />
                                         </button>
                                         <button
-                                            onClick={() => handleToggle(o)}
+                                            onClick={(e) => { e.stopPropagation(); handleToggle(o); }}
                                             className={`p-2 rounded-lg transition-colors ${o.activo ? "hover:bg-red-50 text-[#C0392B]" : "hover:bg-[#E1F5EE] text-[#0F6E56]"}`}
                                             title={o.activo ? "Desactivar pedido" : "Reactivar pedido"}
                                         >
@@ -305,6 +331,13 @@ export const Orders = () => {
                 onClose={() => { setModalOpen(false); setSelectedOrder(null); }}
                 order={selectedOrder}
                 onSaved={getOrders}
+            />
+
+            <OrderDetailModal
+                isOpen={detailOpen}
+                onClose={() => { setDetailOpen(false); setDetailOrder(null); }}
+                order={detailOrder}
+                onStatusChange={getOrders}
             />
         </div>
     );

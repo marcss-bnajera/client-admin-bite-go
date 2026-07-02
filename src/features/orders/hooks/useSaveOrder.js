@@ -8,6 +8,7 @@ export const useSaveOrder = () => {
         const payload = {
             id_usuario_cliente: data.id_usuario_cliente,
             id_restaurante: data.id_restaurante,
+            id_sucursal: data.id_sucursal || "",
             id_mesero_asignado: data.id_mesero_asignado || null,
             id_repartidor_asignado: data.id_repartidor_asignado || null,
             tipo_servicio: data.tipo_servicio,
