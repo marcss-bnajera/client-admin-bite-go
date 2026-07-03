@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Plus, Search, Pencil, Eye, EyeOff, Filter, UserCircle2, Store, Phone, Mail, FileText, MapPin } from "lucide-react";
+import { Plus, Pencil, Eye, EyeOff, UserCircle2, Store, Phone, Mail, MapPin } from "lucide-react";
 import { UserModal } from "./UserModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
+import { RestaurantFilterBar } from "../../../shared/components/ui/RestaurantFilterBar";
 import { useUsers } from "../hooks/useUsers";
 import { useUsersStore } from "../store/usersStore";
 import { showConfirmToast } from "../../../shared/utils/confirmToast";
@@ -19,6 +20,13 @@ const roles = ["SuperAdmin", "Admin_Restaurante", "Mesero", "Repartidor", "Cocin
 
 const LIMIT = 10;
 
+const getDireccion = (u) => {
+    if (u.direccion) return u.direccion;
+    const pred = u.direcciones?.find(d => d.predeterminada);
+    if (pred) return pred.direccion;
+    return u.direcciones?.[0]?.direccion || "";
+};
+
 export const Users = () => {
     const { users, loading, getUsers } = useUsers();
     const { deleteUser, activateUser } = useUsersStore();
@@ -26,6 +34,7 @@ export const Users = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [search, setSearch] = useState("");
+    const [filterRestaurant, setFilterRestaurant] = useState("");
     const [filterRol, setFilterRol] = useState("");
     const [filterActivo, setFilterActivo] = useState("activo");
     const [page, setPage] = useState(1);
@@ -35,8 +44,9 @@ export const Users = () => {
         const matchSearch =
             u.nombre?.toLowerCase().includes(search.toLowerCase()) ||
             u.email?.toLowerCase().includes(search.toLowerCase());
+        const matchRestaurant = filterRestaurant ? (u.id_restaurante?._id || u.id_restaurante) === filterRestaurant : true;
         const matchRol = filterRol ? u.rol === filterRol : true;
-        return matchSearch && matchRol;
+        return matchSearch && matchRestaurant && matchRol;
     });
 
     const totalPages = Math.ceil(filtered.length / LIMIT);
@@ -44,17 +54,6 @@ export const Users = () => {
 
     const handleNew = () => { setSelectedUser(null); setModalOpen(true); };
     const handleEdit = (user) => { setSelectedUser(user); setModalOpen(true); };
-    const handleSearchChange = (e) => { setSearch(e.target.value); setPage(1); };
-    const handleRolChange = (e) => { setFilterRol(e.target.value); setPage(1); };
-
-    const handleActivoChange = (e) => {
-        const val = e.target.value;
-        setFilterActivo(val);
-        setPage(1);
-        if (val === "activo") getUsers({ activo: true });
-        else if (val === "inactivo") getUsers({ activo: false });
-        else getUsers();
-    };
 
     const handleToggleActivo = (u) => {
         if (u.activo) {
@@ -84,8 +83,6 @@ export const Users = () => {
         }
     };
 
-    const selectClass = "outline-none text-sm bg-transparent text-[#6B6B6B] w-full cursor-pointer h-full font-inherit";
-
     return (
         <div className="space-y-6 max-w-full px-1 sm:px-0">
 
@@ -103,58 +100,31 @@ export const Users = () => {
                 </button>
             </div>
 
-            {/* FILTROS (Tus filtros originales con rendimiento elástico e idéntico espaciado) */}
-            <div className="flex flex-col gap-2 pb-4 border-b border-[#E8D8C3] w-full transition-all duration-500 ease-in-out">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full transition-all duration-500 ease-in-out">
-
-                    {/* Input de Búsqueda */}
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 lg:h-10 w-full sm:max-w-xs shadow-sm focus-within:border-[#E67E22] transition-colors shrink-0">
-                        <Search size={16} className="text-[#6B6B6B] shrink-0" />
-                        <input
-                            value={search}
-                            onChange={handleSearchChange}
-                            className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B]"
-                            placeholder="Buscar por nombre o correo..."
-                        />
-                    </div>
-
-                    {/* Contenedor inline exclusivo de escritorio (lg) */}
-                    <div className="hidden lg:flex lg:items-center gap-2 transition-all duration-500">
-                        <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-[180px] shrink-0">
-                            <Filter size={14} className="text-[#6B6B6B] shrink-0" />
-                            <select value={filterRol} onChange={handleRolChange} className={selectClass}>
-                                <option value="">Todos los roles</option>
-                                {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
-                        </div>
-                        <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-[130px] shrink-0">
-                            <select value={filterActivo} onChange={handleActivoChange} className={selectClass}>
-                                <option value="">Todos</option>
-                                <option value="activo">Activos</option>
-                                <option value="inactivo">Inactivos</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                {/* FILA SECUNDARIA: Adaptativa para Móviles y Tablets */}
-                <div className="flex flex-row gap-2 w-full lg:hidden transition-all duration-500 ease-in-out transform origin-top">
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 flex-1 sm:flex-none sm:w-[180px] shrink-0 shadow-sm focus-within:border-[#E67E22] transition-colors">
-                        <Filter size={14} className="text-[#6B6B6B] shrink-0" />
-                        <select value={filterRol} onChange={handleRolChange} className={selectClass}>
+            <RestaurantFilterBar
+                filterRestaurant={filterRestaurant}
+                onRestaurantChange={setFilterRestaurant}
+                showSucursal={false}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar por nombre o correo..."
+                filterActivo={filterActivo}
+                onActivoChange={setFilterActivo}
+                showActiveFilter
+                onPageReset={setPage}
+                showEmptyState={false}
+                extraFilters={
+                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-full sm:w-[180px] focus-within:border-[#E67E22] transition-colors">
+                        <select
+                            value={filterRol}
+                            onChange={(e) => { setFilterRol(e.target.value); setPage(1); }}
+                            className="outline-none text-sm bg-transparent text-[#6B6B6B] w-full cursor-pointer"
+                        >
                             <option value="">Todos los roles</option>
                             {roles.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                     </div>
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 flex-1 sm:flex-none sm:w-[130px] shrink-0 shadow-sm focus-within:border-[#E67E22] transition-colors">
-                        <select value={filterActivo} onChange={handleActivoChange} className={selectClass}>
-                            <option value="">Todos</option>
-                            <option value="activo">Activos</option>
-                            <option value="inactivo">Inactivos</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
+                }
+            />
 
             {/* VISTA EN TARJETAS PARA DISPOSITIVOS MÓVILES (Tu versión original que está de 10) */}
             <div className="block lg:hidden space-y-3 transition-all duration-300">
@@ -187,8 +157,7 @@ export const Users = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs border-t border-b border-[#E8D8C3]/60 py-2.5">
                             <div className="flex items-center gap-1.5 text-[#6B6B6B] min-w-0"><Mail size={13} className="text-[#A0A0A0] shrink-0" /><span className="truncate">{u.email}</span></div>
                             <div className="flex items-center gap-1.5 text-[#6B6B6B] min-w-0"><Phone size={13} className="text-[#A0A0A0] shrink-0" /><span className="truncate">{u.telefono || "—"}</span></div>
-                            <div className="flex items-center gap-1.5 text-[#6B6B6B] min-w-0 sm:col-span-2"><MapPin size={13} className="text-[#A0A0A0] shrink-0" /><span className="truncate">{u.direccion || "—"}</span></div>
-                            <div className="flex items-center gap-1.5 text-[#6B6B6B] min-w-0"><FileText size={13} className="text-[#A0A0A0] shrink-0" /><span className="truncate">DPI: {u.dpi || "—"}</span></div>
+                            <div className="flex items-center gap-1.5 text-[#6B6B6B] min-w-0 sm:col-span-2"><MapPin size={13} className="text-[#A0A0A0] shrink-0" /><span className="truncate">{getDireccion(u) || "—"}</span></div>
                             <div className="flex items-center gap-1.5 text-[#6B6B6B] min-w-0"><Store size={13} className="text-[#A0A0A0] shrink-0" /><span className="truncate">{u.id_restaurante?.nombre || "—"}</span></div>
                         </div>
 
@@ -211,9 +180,8 @@ export const Users = () => {
                             <tr>
                                 <th className="text-left px-6 py-4 font-bold tracking-wide">Usuario</th>
                                 <th className="text-left px-6 py-4 font-bold tracking-wide">Correo</th>
-                                <th className="text-left px-6 py-4 font-bold tracking-wide hidden md:table-cell">Teléfono</th>
-                                <th className="text-left px-6 py-4 font-bold tracking-wide hidden xl:table-cell">Dirección</th>
-                                <th className="text-left px-6 py-4 font-bold tracking-wide hidden md:table-cell">DPI</th>
+                                <th className="text-left px-6 py-4 font-bold tracking-wide">Teléfono</th>
+                                <th className="text-left px-6 py-4 font-bold tracking-wide">Dirección</th>
                                 <th className="text-left px-6 py-4 font-bold tracking-wide">Rol</th>
                                 <th className="text-left px-6 py-4 font-bold tracking-wide hidden lg:table-cell">Restaurante</th>
                                 <th className="text-left px-6 py-4 font-bold tracking-wide">Estado</th>
@@ -222,9 +190,9 @@ export const Users = () => {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={9} className="px-6 py-10 text-center text-[#6B6B6B] font-semibold">Cargando usuarios...</td></tr>
+                                <tr><td colSpan={8} className="px-6 py-10 text-center text-[#6B6B6B] font-semibold">Cargando usuarios...</td></tr>
                             ) : paginated.length === 0 ? (
-                                <tr><td colSpan={9} className="px-6 py-10 text-center text-[#6B6B6B]">No se encontraron usuarios</td></tr>
+                                <tr><td colSpan={8} className="px-6 py-10 text-center text-[#6B6B6B]">No se encontraron usuarios</td></tr>
                             ) : paginated.map((u, index) => (
                                 <tr
                                     key={u._id}
@@ -239,10 +207,8 @@ export const Users = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-[#6B6B6B] whitespace-nowrap">{u.email}</td>
-                                    <td className="px-6 py-4 text-[#6B6B6B] hidden md:table-cell whitespace-nowrap">{u.telefono || "—"}</td>
-                                    {/* El max-w-xs con truncate evita que una dirección de 3 líneas rompa todo el diseño, pero si aún así se activa el scroll, la barra estará decorada */}
-                                    <td className="px-6 py-4 text-[#6B6B6B] hidden xl:table-cell max-w-xs truncate" title={u.direccion || "—"}>{u.direccion || "—"}</td>
-                                    <td className="px-6 py-4 text-[#6B6B6B] hidden md:table-cell whitespace-nowrap">{u.dpi || "—"}</td>
+                                    <td className="px-6 py-4 text-[#6B6B6B] whitespace-nowrap">{u.telefono || "—"}</td>
+                                    <td className="px-6 py-4 text-[#6B6B6B] max-w-xs truncate" title={getDireccion(u) || "—"}>{getDireccion(u) || "—"}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold shadow-sm inline-block text-center min-w-[110px] ${rolColor[u.rol] ?? "bg-[#D6D6D6] text-gray-700"}`}>
                                             {u.rol}

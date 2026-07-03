@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
     ShoppingBag, UtensilsCrossed, CalendarDays, Users,
     AlertTriangle, Store, TrendingUp, TrendingDown,
@@ -11,6 +11,7 @@ import { useProductsStore } from "../../products/store/productsStore";
 import { useUsersStore } from "../../users/store/usersStore";
 import { useInventoryStore } from "../../inventory/store/inventoryStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
+import { useAuthStore } from "../../auth/store/authStore";
 
 const estadoConfig = {
     Pendiente: { cls: "bg-[#EAD7A4] text-yellow-800", dot: "bg-yellow-500" },
@@ -36,21 +37,58 @@ const formatTime = (iso) => {
 
 export const Dashboard = () => {
     const orders = useOrdersStore((state) => state.orders);
+    const getOrders = useOrdersStore((state) => state.getOrders);
     const reservations = useReservationsStore((state) => state.reservations);
-    console.log(reservations[0]?.reservationDate);
+    const getReservations = useReservationsStore((state) => state.getReservations);
     const products = useProductsStore((state) => state.products);
+    const getProducts = useProductsStore((state) => state.getProducts);
     const users = useUsersStore((state) => state.users);
+    const getUsers = useUsersStore((state) => state.getUsers);
     const restaurants = useRestaurantsStore((state) => state.restaurants);
+    const getRestaurants = useRestaurantsStore((state) => state.getRestaurants);
     const alerts = useInventoryStore((state) => state.alerts);
     const getLowStockAlerts = useInventoryStore((state) => state.getLowStockAlerts);
-    const restaurantsList = useRestaurantsStore((state) => state.restaurants);
 
-    // Cargar alertas del primer restaurante activo
     useEffect(() => {
-        if (restaurantsList.length > 0) {
-            restaurantsList.forEach((r) => getLowStockAlerts(r._id));
+        const load = async () => {
+            await Promise.allSettled([
+                getOrders({ limit: 100 }),
+                getReservations({ limit: 100 }),
+                getRestaurants({ limit: 100 }),
+            ]);
+            await Promise.allSettled([
+                getProducts({ limit: 100 }),
+                getUsers({ limit: 100 }),
+            ]);
+        };
+        load();
+    }, []);
+
+    useEffect(() => {
+        if (restaurants.length > 0) {
+            restaurants.forEach((r) => getLowStockAlerts(r._id));
         }
-    }, [restaurantsList.length]);
+    }, [restaurants.length]);
+
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    const mountedRef = useRef(true);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => { mountedRef.current = false; };
+    }, []);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        const interval = setInterval(() => {
+            if (document.visibilityState === "visible" && mountedRef.current) {
+                getOrders({ limit: 100 }, true);
+                getReservations({ limit: 100 }, true);
+                restaurants.forEach((r) => getLowStockAlerts(r._id));
+            }
+        }, 8000);
+        return () => clearInterval(interval);
+    }, [isAuthenticated, getOrders, getReservations, getLowStockAlerts, restaurants]);
 
     const today = new Date().toDateString();
 
@@ -166,7 +204,7 @@ export const Dashboard = () => {
                             return (
                                 <div key={p._id} className="p-4 space-y-2.5 hover:bg-[#F2E6D9]/30 transition-colors">
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="font-bold text-[#2B2B2B] text-sm truncate">{p.id_usuario_cliente?.nombre || "—"}</span>
+                                        <span className="font-bold text-[#2B2B2B] text-sm truncate">{p.cliente_nombre || "—"}</span>
                                         <span className="font-extrabold text-[#2B2B2B] text-sm shrink-0">Q{p.total?.toFixed(2) ?? "0.00"}</span>
                                     </div>
                                     <div className="flex items-center justify-between gap-2 text-xs text-[#6B6B6B]">
@@ -211,7 +249,7 @@ export const Dashboard = () => {
                                     return (
                                         <tr key={p._id} className={`border-t border-[#E8D8C3] hover:bg-[#F2E6D9] transition-colors ${index % 2 === 0 ? "bg-white" : "bg-[#F5EFE6]/50"}`}>
                                             <td className="px-6 py-3 font-medium text-[#2B2B2B] truncate max-w-[140px]">
-                                                {p.id_usuario_cliente?.nombre || "—"}
+                                                {p.cliente_nombre || "—"}
                                             </td>
                                             <td className="px-6 py-3 text-[#6B6B6B] text-xs truncate max-w-[150px]">
                                                 {p.id_restaurante?.nombre || "—"}

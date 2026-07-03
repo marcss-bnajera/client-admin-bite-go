@@ -1,12 +1,17 @@
-import { X, PartyPopper, Plus, Trash2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { X, PartyPopper, Plus, Trash2, Store, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSaveEvento } from "../hooks/useSaveEvento";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { showSuccess, showError } from "../../../shared/utils/toast";
+import { DatePicker } from "../../../shared/ui/DatePicker";
+import { format } from "date-fns";
+import { es } from "date-fns/locale/es";
+import { RestaurantPickerModal } from "../../../shared/components/ui/RestaurantPickerModal";
 
 const toDateInput = (fecha) => {
-    if (!fecha) return "";
-    return new Date(fecha).toISOString().split("T")[0];
+    if (!fecha) return null;
+    const d = new Date(fecha);
+    return isNaN(d.getTime()) ? null : d;
 };
 
 export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null, onSaved }) => {
@@ -23,24 +28,61 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
         id_restaurante: "",
         nombre: "",
         descripcion: "",
-        fechas: [""],
+        fechas: [null],
         servicios: [""],
     });
 
     const [formErrors, setFormErrors] = useState({});
 
+    const [selectedRestId, setSelectedRestId] = useState("");
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const prevRestaurantId = useRef(null);
+    const skipPick = useRef(false);
+
+    const selectedRestaurant = useMemo(
+        () => restaurants.find((r) => r._id === selectedRestId),
+        [restaurants, selectedRestId]
+    );
+
     useEffect(() => {
         if (isOpen) {
+            const initialRestId = resolvedRestauranteId;
+            setSelectedRestId(initialRestId);
+            prevRestaurantId.current = null;
+            skipPick.current = false;
             setFormErrors({});
             setForm({
-                id_restaurante: resolvedRestauranteId,
+                id_restaurante: initialRestId,
                 nombre: event?.nombre || "",
                 descripcion: event?.descripcion || "",
-                fechas: event?.fechas?.length ? event.fechas.map(toDateInput) : [""],
+                fechas: event?.fechas?.length ? event.fechas.map(toDateInput).filter(Boolean) : [null],
                 servicios: event?.servicios?.length ? event.servicios : [""],
             });
         }
     }, [isOpen, event]);
+
+    useEffect(() => {
+        if (prevRestaurantId.current === null) {
+            prevRestaurantId.current = selectedRestId;
+            return;
+        }
+        if (skipPick.current) {
+            skipPick.current = false;
+            prevRestaurantId.current = selectedRestId;
+            return;
+        }
+        if (prevRestaurantId.current !== selectedRestId) {
+            setForm((prev) => ({ ...prev, id_restaurante: selectedRestId }));
+            prevRestaurantId.current = selectedRestId;
+        }
+    }, [selectedRestId]);
+
+    const handleRestaurantPick = (restaurant) => {
+        skipPick.current = true;
+        setSelectedRestId(restaurant._id);
+        setForm((prev) => ({ ...prev, id_restaurante: restaurant._id }));
+        if (formErrors.id_restaurante) setFormErrors((prev) => ({ ...prev, id_restaurante: "" }));
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -48,14 +90,14 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
         if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: "" }));
     };
 
-    const handleFechaChange = (index, value) => {
+    const handleFechaChange = (index, dateObj) => {
         const nuevasFechas = [...form.fechas];
-        nuevasFechas[index] = value;
+        nuevasFechas[index] = dateObj;
         setForm({ ...form, fechas: nuevasFechas });
         if (formErrors.fechas) setFormErrors((prev) => ({ ...prev, fechas: "" }));
     };
 
-    const addFecha = () => setForm({ ...form, fechas: [...form.fechas, ""] });
+    const addFecha = () => setForm({ ...form, fechas: [...form.fechas, null] });
     const removeFecha = (index) => setForm({ ...form, fechas: form.fechas.filter((_, i) => i !== index) });
 
     const handleServicioChange = (index, value) => {
@@ -84,12 +126,20 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                 ? event?.id_restaurante?._id
                 : event?.id_restaurante;
 
-            await saveEvento(form, form.id_restaurante, event?._id ?? null, originalRestaurantId);
+            const formToSend = {
+                ...form,
+                fechas: form.fechas.filter(Boolean).map(d => d.toISOString()),
+            };
+
+            await saveEvento(formToSend, form.id_restaurante, event?._id ?? null, originalRestaurantId);
             showSuccess(isEditing ? "Evento actualizado" : "Evento creado");
             onSaved?.();
             onClose();
-        } catch {
-            showError("Error al guardar el evento");
+        } catch (err) {
+            const msg = err.response?.data?.error?.[0]?.message
+                || err.response?.data?.message
+                || "Error al guardar el evento";
+            showError(msg);
         }
     };
 
@@ -99,8 +149,8 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
         `w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${formErrors[name] ? "border-red-400" : "border-[#E8D8C3]"}`;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-[#E8D8C3] max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-[#E8D8C3] max-h-[95vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D8C3] bg-[#3A2E2A] rounded-t-2xl sticky top-0 z-10">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-[#E67E22]/20 flex items-center justify-center">
@@ -120,17 +170,22 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                     {!restauranteId && (
                         <div>
                             <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante *</label>
-                            <select
-                                name="id_restaurante"
-                                value={form.id_restaurante}
-                                onChange={handleChange}
-                                className={inputClass("id_restaurante")}
-                            >
-                                <option value="">Seleccionar restaurante...</option>
-                                {restaurants.map((r) => (
-                                    <option key={r._id} value={r._id}>{r.nombre}</option>
-                                ))}
-                            </select>
+                            {selectedRestId && selectedRestaurant ? (
+                                <button type="button" disabled={isEditing} onClick={() => !isEditing && setPickerOpen(true)} className={`w-full flex items-center gap-2 px-4 py-2.5 border border-[#E67E22] bg-[#E67E22]/5 rounded-xl text-left transition-colors ${!isEditing ? "cursor-pointer hover:bg-[#E67E22]/10" : "cursor-not-allowed opacity-60"}`}>
+                                    <div className="w-6 h-6 rounded-lg bg-[#E67E22]/20 flex items-center justify-center shrink-0">
+                                        <Store size={12} className="text-[#E67E22]" />
+                                    </div>
+                                    <span className="text-sm font-semibold text-[#2B2B2B] truncate flex-1">{selectedRestaurant.nombre}</span>
+                                    {!isEditing && <ChevronDown size={14} className="text-[#6B6B6B] shrink-0" />}
+                                </button>
+                            ) : (
+                                <button type="button" onClick={() => setPickerOpen(true)} className={`w-full flex items-center gap-3 px-4 py-2.5 border rounded-xl text-sm transition-colors ${formErrors.id_restaurante ? "border-red-400 bg-red-50" : "border-[#E8D8C3] bg-[#F5EFE6]/50 hover:border-[#D3C4B0]"}`}>
+                                    <div className="w-8 h-8 rounded-lg bg-[#E8D8C3] flex items-center justify-center shrink-0">
+                                        <Store size={14} className="text-[#6B6B6B]" />
+                                    </div>
+                                    <span className="text-[#6B6B6B]">Seleccionar restaurante...</span>
+                                </button>
+                            )}
                             {formErrors.id_restaurante && <p className="text-[10px] text-red-500 mt-1">{formErrors.id_restaurante}</p>}
                         </div>
                     )}
@@ -148,12 +203,18 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Descripción</label>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide">Descripción</label>
+                            <span className={`text-[10px] ${form.descripcion.length > 450 ? "text-[#C0392B] font-bold" : "text-[#6B6B6B]"}`}>
+                                {form.descripcion.length}/500
+                            </span>
+                        </div>
                         <textarea
                             name="descripcion"
                             value={form.descripcion}
                             onChange={handleChange}
-                            rows={2}
+                            maxLength={500}
+                            rows={3}
                             placeholder="Describe el evento..."
                             className={inputClass("descripcion")}
                             style={{ resize: "none" }}
@@ -170,12 +231,18 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                         <div className="space-y-2">
                             {form.fechas.map((fecha, index) => (
                                 <div key={index} className="flex items-center gap-2">
-                                    <input
-                                        type="date"
-                                        value={fecha}
-                                        onChange={(e) => handleFechaChange(index, e.target.value)}
-                                        className={`flex-1 px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${formErrors.fechas ? "border-red-400" : "border-[#E8D8C3]"}`}
-                                    />
+                                    <div className="flex-1">
+                                        <DatePicker
+                                            value={fecha}
+                                            onChange={(date) => handleFechaChange(index, date)}
+                                            placeholder="Seleccionar fecha"
+                                        />
+                                        {fecha && (
+                                            <p className="text-[10px] text-[#E67E22] mt-1 font-semibold">
+                                                {format(fecha, "EEE d MMM, yyyy", { locale: es })}
+                                            </p>
+                                        )}
+                                    </div>
                                     {form.fechas.length > 1 && (
                                         <button type="button" onClick={() => removeFecha(index)} className="p-2 rounded-lg hover:bg-red-50 text-[#C0392B] transition-colors">
                                             <Trash2 size={14} />
@@ -224,6 +291,13 @@ export const EventModal = ({ isOpen, onClose, event = null, restauranteId = null
                     </div>
                 </form>
             </div>
+
+            <RestaurantPickerModal
+                isOpen={pickerOpen}
+                onClose={() => setPickerOpen(false)}
+                onSelect={handleRestaurantPick}
+                selectedId={selectedRestId}
+            />
         </div>
     );
 };

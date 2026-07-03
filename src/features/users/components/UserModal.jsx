@@ -1,10 +1,11 @@
-import { X, Users, Eye, EyeOff } from "lucide-react";
-import { useState, useEffect } from "react";
+import { X, Users, Eye, EyeOff, Store, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useSaveUser } from "../hooks/useSaveUser";
 import { useUsersStore } from "../store/usersStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { showSuccess, showError } from "../../../shared/utils/toast";
+import { RestaurantPickerModal } from "../../../shared/components/ui/RestaurantPickerModal";
 
 const roles = ["SuperAdmin", "Admin_Restaurante", "Mesero", "Repartidor", "Cocinero", "Cliente"];
 const rolesConRestaurante = ["Admin_Restaurante", "Mesero", "Repartidor", "Cocinero"];
@@ -21,6 +22,15 @@ export const UserModal = ({ isOpen, onClose, user = null, onSaved }) => {
     const [showConfirm, setShowConfirm] = useState(false);
     const [changePassword, setChangePassword] = useState(false);
 
+    const [selectedRestId, setSelectedRestId] = useState("");
+    const [restPickerOpen, setRestPickerOpen] = useState(false);
+    const prevRestId = useRef(null);
+
+    const selectedRestaurantObj = useMemo(
+        () => restaurantes.find((r) => r._id === selectedRestId),
+        [restaurantes, selectedRestId]
+    );
+
     const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
 
     const rolActual = watch("rol", "Cliente");
@@ -34,6 +44,11 @@ export const UserModal = ({ isOpen, onClose, user = null, onSaved }) => {
     useEffect(() => {
         if (isOpen) {
             setChangePassword(false);
+            setShowPassword(false);
+            setShowConfirm(false);
+            const initialRestId = user ? (user.id_restaurante?._id || user.id_restaurante || "") : "";
+            setSelectedRestId(initialRestId);
+            prevRestId.current = null;
             reset(user ? {
                 nombre: user.nombre || "",
                 email: user.email || "",
@@ -41,15 +56,30 @@ export const UserModal = ({ isOpen, onClose, user = null, onSaved }) => {
                 confirmPassword: "",
                 telefono: user.telefono || "",
                 direccion: user.direccion || "",
-                dpi: user.dpi || "",
                 rol: user.rol || "Cliente",
-                id_restaurante: user.id_restaurante?._id || user.id_restaurante || "",
+                id_restaurante: initialRestId,
             } : {
                 nombre: "", email: "", password: "", confirmPassword: "",
-                telefono: "", direccion: "", dpi: "", rol: "Cliente", id_restaurante: "",
+                telefono: "", direccion: "", rol: "Cliente", id_restaurante: "",
             });
         }
     }, [isOpen, user, reset]);
+
+    useEffect(() => {
+        if (prevRestId.current === null) {
+            prevRestId.current = selectedRestId;
+            return;
+        }
+        if (prevRestId.current !== selectedRestId) {
+            reset((prev) => ({ ...prev, id_restaurante: selectedRestId }));
+            prevRestId.current = selectedRestId;
+        }
+    }, [selectedRestId, reset]);
+
+    const handleRestaurantPick = (restaurant) => {
+        setSelectedRestId(restaurant._id);
+        reset((prev) => ({ ...prev, id_restaurante: restaurant._id }));
+    };
 
     const onSubmit = async (data) => {
         if (isEditing && !changePassword) {
@@ -69,7 +99,7 @@ export const UserModal = ({ isOpen, onClose, user = null, onSaved }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-[#E8D8C3] max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D8C3] bg-[#3A2E2A] rounded-t-2xl sticky top-0 z-10">
@@ -89,32 +119,18 @@ export const UserModal = ({ isOpen, onClose, user = null, onSaved }) => {
                 {/* Body */}
                 <form onSubmit={handleSubmit(onSubmit)} noValidate className="px-6 py-5 space-y-4">
 
-                    {/* Nombre + DPI */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Nombre Completo *</label>
-                            <input
-                                placeholder="Ej: Juan Pérez"
-                                className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${errors.nombre ? "border-red-400" : "border-[#E8D8C3]"}`}
-                                {...register("nombre", {
-                                    required: "El nombre es obligatorio",
-                                    minLength: { value: 3, message: "Mínimo 3 caracteres" },
-                                })}
-                            />
-                            {errors.nombre && <p className="text-[10px] text-red-500 mt-1">{errors.nombre.message}</p>}
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">DPI *</label>
-                            <input
-                                placeholder="Ej: 1234567890101"
-                                className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${errors.dpi ? "border-red-400" : "border-[#E8D8C3]"}`}
-                                {...register("dpi", {
-                                    required: "El DPI es obligatorio",
-                                    pattern: { value: /^\d{13}$/, message: "El DPI debe tener exactamente 13 dígitos" },
-                                })}
-                            />
-                            {errors.dpi && <p className="text-[10px] text-red-500 mt-1">{errors.dpi.message}</p>}
-                        </div>
+                    {/* Nombre */}
+                    <div>
+                        <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Nombre Completo *</label>
+                        <input
+                            placeholder="Ej: Juan Pérez"
+                            className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${errors.nombre ? "border-red-400" : "border-[#E8D8C3]"}`}
+                            {...register("nombre", {
+                                required: "El nombre es obligatorio",
+                                minLength: { value: 3, message: "Mínimo 3 caracteres" },
+                            })}
+                        />
+                        {errors.nombre && <p className="text-[10px] text-red-500 mt-1">{errors.nombre.message}</p>}
                     </div>
 
                     {/* Email */}
@@ -238,15 +254,25 @@ export const UserModal = ({ isOpen, onClose, user = null, onSaved }) => {
                     {requiereRestaurante && (
                         <div className="bg-[#F5EFE6] border border-[#E8D8C3] rounded-xl p-3">
                             <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante Asignado *</label>
-                            <select
-                                className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-white transition-colors ${errors.id_restaurante ? "border-red-400" : "border-[#E8D8C3]"}`}
-                                {...register("id_restaurante", {
-                                    validate: (value) => !requiereRestaurante || !!value || "Selecciona un restaurante",
-                                })}
-                            >
-                                <option value="">Seleccionar restaurante...</option>
-                                {restaurantes.map((r) => <option key={r._id} value={r._id}>{r.nombre}</option>)}
-                            </select>
+                            {selectedRestId && selectedRestaurantObj ? (
+                                <button type="button" onClick={() => setRestPickerOpen(true)} className="w-full flex items-center gap-2 px-4 py-2.5 border border-[#E67E22] bg-white rounded-xl text-left cursor-pointer hover:bg-[#E67E22]/10 transition-colors">
+                                    <div className="w-6 h-6 rounded-lg bg-[#E67E22]/20 flex items-center justify-center shrink-0">
+                                        <Store size={12} className="text-[#E67E22]" />
+                                    </div>
+                                    <span className="text-sm font-semibold text-[#2B2B2B] truncate flex-1">{selectedRestaurantObj.nombre}</span>
+                                    <ChevronDown size={14} className="text-[#6B6B6B] shrink-0" />
+                                </button>
+                            ) : (
+                                <button type="button" onClick={() => setRestPickerOpen(true)} className={`w-full flex items-center gap-3 px-4 py-2.5 border rounded-xl text-sm bg-white transition-colors ${errors.id_restaurante ? "border-red-400 bg-red-50" : "border-[#E8D8C3] hover:border-[#D3C4B0]"}`}>
+                                    <div className="w-8 h-8 rounded-lg bg-[#E8D8C3] flex items-center justify-center shrink-0">
+                                        <Store size={14} className="text-[#6B6B6B]" />
+                                    </div>
+                                    <span className="text-[#6B6B6B]">Seleccionar restaurante...</span>
+                                </button>
+                            )}
+                            <input type="hidden" {...register("id_restaurante", {
+                                validate: (value) => !requiereRestaurante || !!value || "Selecciona un restaurante",
+                            })} />
                             {errors.id_restaurante
                                 ? <p className="text-[10px] text-red-500 mt-1">{errors.id_restaurante.message}</p>
                                 : <p className="text-[10px] text-[#6B6B6B] mt-1">El rol <strong>{rolActual}</strong> requiere restaurante asignado</p>
@@ -267,6 +293,13 @@ export const UserModal = ({ isOpen, onClose, user = null, onSaved }) => {
                     </div>
                 </form>
             </div>
+
+            <RestaurantPickerModal
+                isOpen={restPickerOpen}
+                onClose={() => setRestPickerOpen(false)}
+                onSelect={handleRestaurantPick}
+                selectedId={selectedRestId}
+            />
         </div>
     );
 };

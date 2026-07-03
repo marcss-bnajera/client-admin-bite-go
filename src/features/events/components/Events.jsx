@@ -1,25 +1,30 @@
-import { useState } from "react";
-import { Plus, Search, Pencil, Trash2, CalendarDays, Store, Tag } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Pencil, Trash2, CalendarDays, Store, Tag } from "lucide-react";
 import { EventModal } from "./EventModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
-import { useRestaurants } from "../../restaurants/hooks/useRestaurants";
+import { RestaurantFilterBar } from "../../../shared/components/ui/RestaurantFilterBar";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const LIMIT = 6;
 
 export const Events = () => {
-    const { restaurants, loading } = useRestaurants();
+    const restaurants = useRestaurantsStore((state) => state.restaurants);
+    const loading = useRestaurantsStore((state) => state.loading);
     const { deleteEvento } = useRestaurantsStore();
 
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [search, setSearch] = useState("");
+    const [filterRestaurant, setFilterRestaurant] = useState("");
     const [page, setPage] = useState(1);
 
-    const allEventos = restaurants.flatMap((r) =>
-        (r.eventos ?? []).map((e) => ({ ...e, id_restaurante: { _id: r._id, nombre: r.nombre } }))
-    );
+    const allEventos = (() => {
+        if (!filterRestaurant) return [];
+        const r = restaurants.find((r) => r._id === filterRestaurant);
+        if (!r) return [];
+        return (r.eventos ?? []).map((e) => ({ ...e, id_restaurante: { _id: r._id, nombre: r.nombre } }));
+    })();
 
     const filtered = allEventos.filter((e) =>
         e.nombre.toLowerCase().includes(search.toLowerCase()) ||
@@ -53,18 +58,16 @@ export const Events = () => {
                 </button>
             </div>
 
-            {/* BARRA DE BÚSQUEDA (Unificada a h-11 en móvil / h-10 en escritorio) */}
-            <div className="flex pb-2 border-b border-[#E8D8C3] w-full">
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 w-full sm:max-w-md shadow-sm focus-within:border-[#E67E22] transition-colors shrink-0">
-                    <Search size={16} className="text-[#6B6B6B] shrink-0" />
-                    <input
-                        value={search}
-                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                        className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B]"
-                        placeholder="Buscar evento o restaurante..."
-                    />
-                </div>
-            </div>
+            <RestaurantFilterBar
+                filterRestaurant={filterRestaurant}
+                onRestaurantChange={setFilterRestaurant}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar evento..."
+                showSucursal={false}
+                onPageReset={setPage}
+                emptyMessage="Seleccioná un restaurante para ver sus eventos"
+            />
 
             {/* Rejilla Adaptativa de Tarjetas */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">

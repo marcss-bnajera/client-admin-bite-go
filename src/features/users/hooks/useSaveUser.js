@@ -13,7 +13,6 @@ export const useSaveUser = () => {
             email: data.email,
             telefono: data.telefono,
             direccion: data.direccion,
-            dpi: data.dpi,
             rol: data.rol,
             id_restaurante: rolesConRestaurante.includes(data.rol) ? data.id_restaurante : null,
         };

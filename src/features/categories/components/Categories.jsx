@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Plus, Search, Pencil, TagIcon, Store, Filter, Tags, FileText } from "lucide-react";
+import { Plus, Pencil, TagIcon, Store, Tags, FileText } from "lucide-react";
 import { CategoryModal } from "./CategoryModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
+import { RestaurantFilterBar } from "../../../shared/components/ui/RestaurantFilterBar";
 import { useCategories } from "../hooks/useCategories";
 import { useCategoriesStore } from "../store/categoriesStore";
 import { showConfirmToast } from "../../../shared/utils/confirmToast";
@@ -35,14 +36,6 @@ export const Categories = () => {
 
     const handleNew = () => { setSelectedCategory(null); setModalOpen(true); };
     const handleEdit = (cat) => { setSelectedCategory(cat); setModalOpen(true); };
-
-    const handleSearchChange = (e) => { setSearch(e.target.value); setPage(1); };
-    const handleRestauranteChange = (e) => { setFilterRestaurante(e.target.value); setPage(1); };
-    const handleActivoChange = (e) => { setFilterActivo(e.target.value); setPage(1); };
-
-    const restaurantes = [...new Map(
-        categories.map((c) => [c.id_restaurante?._id, c.id_restaurante])
-    ).values()].filter(Boolean);
 
     const handleToggleActivo = (cat) => {
         if (cat.activo) {
@@ -86,46 +79,19 @@ export const Categories = () => {
             </div>
 
             {/* FILTROS */}
-            <div className="flex flex-col sm:flex-row gap-2 pb-4 border-b border-[#E8D8C3] w-full">
-                {/* FILA 1: Input de Búsqueda */}
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 w-full sm:flex-1 sm:max-w-xs shadow-sm focus-within:border-[#E67E22] transition-colors shrink-0">
-                    <Search size={16} className="text-[#6B6B6B] shrink-0" />
-                    <input
-                        value={search}
-                        onChange={handleSearchChange}
-                        className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B]"
-                        placeholder="Buscar categoría o restaurante..."
-                    />
-                </div>
-
-                {/* FILA 2: Contenedor de Selects */}
-                <div className="flex flex-row gap-2 w-full sm:w-auto">
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 shadow-sm flex-1 sm:flex-none sm:min-w-[180px] focus-within:border-[#E67E22] transition-colors min-w-0">
-                        <Filter size={16} className="text-[#6B6B6B] shrink-0" />
-                        <select
-                            value={filterRestaurante}
-                            onChange={handleRestauranteChange}
-                            className="outline-none text-sm bg-transparent text-[#6B6B6B] cursor-pointer w-full pr-1 truncate text-xs sm:text-sm line-clamp-1"
-                        >
-                            <option value="">Todos los restaurantes</option>
-                            {restaurantes.map(r => <option key={r._id} value={r._id} className="text-xs sm:text-sm line-clamp-1 truncate">{r.nombre}</option>)}
-                        </select>
-                    </div>
-
-                    {/* Filtro Activo */}
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 shadow-sm flex-1 sm:flex-none sm:min-w-[120px] focus-within:border-[#E67E22] transition-colors min-w-0">
-                        <select
-                            value={filterActivo}
-                            onChange={handleActivoChange}
-                            className="outline-none text-sm bg-transparent text-[#6B6B6B] cursor-pointer w-full truncate text-xs sm:text-sm"
-                        >
-                            <option value="">Todas</option>
-                            <option value="activo">Activas</option>
-                            <option value="inactivo">Inactivas</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
+            <RestaurantFilterBar
+                filterRestaurant={filterRestaurante}
+                onRestaurantChange={setFilterRestaurante}
+                showSucursal={false}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar categoría o restaurante..."
+                filterActivo={filterActivo}
+                onActivoChange={setFilterActivo}
+                showActiveFilter
+                onPageReset={setPage}
+                showEmptyState={false}
+            />
 
             {/* VISTA EN TARJETAS PARA DISPOSITIVOS MÓVILES (Móvil hasta lg:hidden) */}
             <div className="block lg:hidden space-y-3">
