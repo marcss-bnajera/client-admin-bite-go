@@ -1,20 +1,19 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, Pencil, AlertTriangle, PowerOff, Filter } from "lucide-react";
+import { Plus, Pencil, AlertTriangle, PowerOff, SlidersHorizontal } from "lucide-react";
 import { InventoryModal } from "./InventoryModal";
 import { AdjustStockModal } from "./AdjustStockModal";
 import { Pagination } from "../../../shared/components/ui/Pagination";
+import { RestaurantFilterBar } from "../../../shared/components/ui/RestaurantFilterBar";
 import { useInventoryStore } from "../store/inventoryStore";
-import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const LIMIT = 6;
 
 export const Inventory = () => {
-    const restaurants = useRestaurantsStore((state) => state.restaurants);
-    const getRestaurants = useRestaurantsStore((state) => state.getRestaurants);
     const { inventory, alerts, loading, getInventoryByRestaurant, getLowStockAlerts, deleteInsumo, activateInsumo } = useInventoryStore();
 
     const [filterRestaurant, setFilterRestaurant] = useState("");
+    const [filterSucursal, setFilterSucursal] = useState("");
     const [filterActivo, setFilterActivo] = useState("activo");
     const [modalOpen, setModalOpen] = useState(false);
     const [adjustOpen, setAdjustOpen] = useState(false);
@@ -22,15 +21,15 @@ export const Inventory = () => {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
 
-    useEffect(() => { getRestaurants(); }, []);
-
     useEffect(() => {
         if (filterRestaurant) {
             const params = filterActivo === "inactivo" ? {} : { activo: filterActivo === "activo" ? true : undefined };
+            if (filterSucursal) params.id_sucursal = filterSucursal;
             getInventoryByRestaurant(filterRestaurant, params);
-            getLowStockAlerts(filterRestaurant);
+            const alertParams = filterSucursal ? { id_sucursal: filterSucursal } : {};
+            getLowStockAlerts(filterRestaurant, alertParams);
         }
-    }, [filterRestaurant, filterActivo]);
+    }, [filterRestaurant, filterActivo, filterSucursal]);
 
     const filtered = (inventory ?? []).filter((i) => {
         const matchSearch = i.nombre_insumo?.toLowerCase().includes(search.toLowerCase());
@@ -69,12 +68,12 @@ export const Inventory = () => {
                 : filterActivo === "inactivo"
                     ? { activo: false }
                     : {};
+            if (filterSucursal) params.id_sucursal = filterSucursal;
             getInventoryByRestaurant(filterRestaurant, params);
-            getLowStockAlerts(filterRestaurant);
+            const alertParams = filterSucursal ? { id_sucursal: filterSucursal } : {};
+            getLowStockAlerts(filterRestaurant, alertParams);
         }
     };
-
-    const selectClass = "outline-none text-sm bg-transparent text-[#6B6B6B] w-full cursor-pointer";
 
     return (
         <div className="space-y-6">
@@ -94,38 +93,21 @@ export const Inventory = () => {
                 </button>
             </div>
 
-            {/* FILTROS RESPONSIVOS */}
-            <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 items-center pb-5 border-b border-[#E8D8C3]">
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-full sm:w-auto min-w-[200px]">
-                    <Filter size={14} className="text-[#6B6B6B] shrink-0" />
-                    <select value={filterRestaurant} onChange={(e) => { setFilterRestaurant(e.target.value); setPage(1); }} className={selectClass}>
-                        <option value="">Seleccionar restaurante...</option>
-                        {restaurants.map((r) => (
-                            <option key={r._id} value={r._id}>{r.nombre}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-full sm:w-40">
-                    <select value={filterActivo} onChange={(e) => { setFilterActivo(e.target.value); setPage(1); }} className={selectClass}>
-                        <option value="activo">Activos</option>
-                        <option value="inactivo">Inactivos</option>
-                        <option value="">Todos</option>
-                    </select>
-                </div>
-
-                {filterRestaurant && (
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-full sm:flex-1 sm:max-w-xs">
-                        <Search size={14} className="text-[#6B6B6B] shrink-0" />
-                        <input
-                            value={search}
-                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                            className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B]"
-                            placeholder="Buscar insumo..."
-                        />
-                    </div>
-                )}
-            </div>
+            <RestaurantFilterBar
+                filterRestaurant={filterRestaurant}
+                onRestaurantChange={setFilterRestaurant}
+                filterSucursal={filterSucursal}
+                onSucursalChange={setFilterSucursal}
+                filterActivo={filterActivo}
+                onActivoChange={setFilterActivo}
+                showActiveFilter
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar insumo..."
+                showSearch={!!filterRestaurant}
+                onPageReset={setPage}
+                emptyMessage="Seleccioná un restaurante para ver su inventario"
+            />
 
             {/* ALERTA STOCK BAJO RESPONSIVA */}
             {alerts.length > 0 && filterActivo !== "inactivo" && (
@@ -138,12 +120,7 @@ export const Inventory = () => {
                 </div>
             )}
 
-            {!filterRestaurant ? (
-                <div className="flex flex-col items-center justify-center py-24 gap-3 text-[#6B6B6B]">
-                    <Filter size={36} className="opacity-40 animate-pulse" />
-                    <p className="text-sm font-medium">Seleccioná un restaurante para ver su inventario</p>
-                </div>
-            ) : (
+            {!filterRestaurant ? null : (
                 <>
                     {/*VISTA EN CELULARES Y TABLETS */}
                     <div className="block lg:hidden space-y-3">
@@ -250,6 +227,13 @@ export const Inventory = () => {
                                                         <Pencil size={15} />
                                                     </button>
                                                     <button
+                                                        onClick={() => { setSelectedInsumo(insumo); setAdjustOpen(true); }}
+                                                        className="p-2 rounded-lg hover:bg-[#F2E6D9] text-[#3A2E2A] transition-colors active:scale-90"
+                                                        title="Ajustar Stock"
+                                                    >
+                                                        <SlidersHorizontal size={15} />
+                                                    </button>
+                                                    <button
                                                         onClick={() => handleToggle(insumo)}
                                                         className={`p-2 rounded-lg transition-colors active:scale-90 ${insumo.activo ? "hover:bg-red-50 text-[#C0392B]" : "hover:bg-[#E1F5EE] text-[#0F6E56]"}`}
                                                         title={insumo.activo ? "Desactivar" : "Reactivar"}
@@ -283,6 +267,7 @@ export const Inventory = () => {
                 onClose={() => { setModalOpen(false); setSelectedInsumo(null); }}
                 insumo={selectedInsumo}
                 selectedRestaurantId={filterRestaurant}
+                selectedSucursalId={filterSucursal}
                 onSaved={refreshInventory}
             />
             <AdjustStockModal

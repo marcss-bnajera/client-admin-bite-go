@@ -24,9 +24,9 @@ export const useInventoryStore = create((set, get) => ({
         }
     },
 
-    getLowStockAlerts: async (id_restaurante) => {
+    getLowStockAlerts: async (id_restaurante, params = {}) => {
         try {
-            const response = await getLowStockRequest(id_restaurante);
+            const response = await getLowStockRequest(id_restaurante, params);
             set({ alerts: response.data.alerts ?? [] });
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al obtener alertas" });
@@ -44,10 +44,10 @@ export const useInventoryStore = create((set, get) => ({
         }
     },
 
-    adjustStock: async (id, cantidad, id_restaurante) => {
+    adjustStock: async (id, cantidad, id_restaurante, motivo = '') => {
         try {
             set({ loading: true, error: null });
-            await adjustStockRequest(id, { cantidad });
+            await adjustStockRequest(id, { cantidad, motivo });
             await get().getInventoryByRestaurant(id_restaurante);
         } catch (error) {
             set({ error: error.response?.data?.message || "Error al ajustar stock", loading: false });

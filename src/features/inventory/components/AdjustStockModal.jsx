@@ -1,7 +1,12 @@
 import { X, SlidersHorizontal, TrendingUp, TrendingDown } from "lucide-react";
 import { useState } from "react";
+import { useInventoryStore } from "../store/inventoryStore";
+import { showSuccess, showError } from "../../../shared/utils/toast";
 
-export const AdjustStockModal = ({ isOpen, onClose, insumo = null }) => {
+export const AdjustStockModal = ({ isOpen, onClose, insumo = null, onSaved }) => {
+    const adjustStock = useInventoryStore((s) => s.adjustStock);
+    const loading = useInventoryStore((s) => s.loading);
+
     const [form, setForm] = useState({
         tipo: "entrada",
         cantidad: "",
@@ -12,17 +17,24 @@ export const AdjustStockModal = ({ isOpen, onClose, insumo = null }) => {
         setForm({ ...form, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const cantidad = form.tipo === "entrada"
             ? Number(form.cantidad)
             : -Number(form.cantidad);
 
-        console.log("Payload Ajuste Stock → PUT /suppliesInventory/:id:", {
-            cantidad,
-            // motivo es solo para UI, el backend solo recibe cantidad
-        });
-        onClose();
+        const id_restaurante = typeof insumo.id_restaurante === "object"
+            ? insumo.id_restaurante?._id
+            : insumo.id_restaurante;
+
+        try {
+            await adjustStock(insumo._id, cantidad, id_restaurante, form.motivo);
+            showSuccess("Stock ajustado correctamente");
+            onSaved?.();
+            onClose();
+        } catch {
+            showError("Error al ajustar el stock");
+        }
     };
 
     if (!isOpen || !insumo) return null;
@@ -36,7 +48,7 @@ export const AdjustStockModal = ({ isOpen, onClose, insumo = null }) => {
     );
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#E8D8C3]">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D8C3] bg-[#3A2E2A] rounded-t-2xl">
                     <div className="flex items-center gap-3">
@@ -151,9 +163,10 @@ export const AdjustStockModal = ({ isOpen, onClose, insumo = null }) => {
                         </button>
                         <button
                             type="submit"
-                            className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors"
+                            disabled={loading || !form.cantidad}
+                            className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors disabled:opacity-60"
                         >
-                            Aplicar Ajuste
+                            {loading ? "Ajustando..." : "Aplicar Ajuste"}
                         </button>
                     </div>
                 </form>

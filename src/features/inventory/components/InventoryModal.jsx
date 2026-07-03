@@ -1,33 +1,95 @@
-import { X, Package } from "lucide-react";
-import { useState, useEffect } from "react";
+import { X, Package, Store, MapPin, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useInventoryStore } from "../store/inventoryStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
+import { useSaveInsumo } from "../hooks/useSaveInsumo";
 import { showSuccess, showError } from "../../../shared/utils/toast";
-import { updateInsumo as updateInsumoRequest } from "../../../shared/api";
+import { RestaurantPickerModal } from "../../../shared/components/ui/RestaurantPickerModal";
+import { SucursalPickerModal } from "../../../shared/components/ui/SucursalPickerModal";
 
-export const InventoryModal = ({ isOpen, onClose, insumo = null, selectedRestaurantId = "", onSaved }) => {
+export const InventoryModal = ({ isOpen, onClose, insumo = null, selectedRestaurantId = "", selectedSucursalId = "", onSaved }) => {
     const isEditing = !!insumo;
     const loading = useInventoryStore((state) => state.loading);
-    const createInsumo = useInventoryStore((state) => state.createInsumo);
+    const { saveInsumo } = useSaveInsumo();
     const restaurants = useRestaurantsStore((state) => state.restaurants);
 
     const [form, setForm] = useState({
         id_restaurante: "",
+        id_sucursal: "",
         nombre_insumo: "",
         stock_actual: "",
         stock_minimo: "",
     });
 
+    const [selectedRestId, setSelectedRestId] = useState("");
+    const [selectedSucId, setSelectedSucId] = useState("");
+    const [restPickerOpen, setRestPickerOpen] = useState(false);
+    const [sucPickerOpen, setSucPickerOpen] = useState(false);
+    const prevRestId = useRef(null);
+    const prevSucId = useRef(null);
+
+    const selectedRestaurantObj = useMemo(
+        () => restaurants.find((r) => r._id === selectedRestId),
+        [restaurants, selectedRestId]
+    );
+    const tieneSucursales = selectedRestaurantObj?.tiene_sucursales && selectedRestaurantObj?.sucursales?.length > 0;
+    const sucursales = tieneSucursales ? (selectedRestaurantObj?.sucursales ?? []) : [];
+    const selectedSucursalObj = useMemo(
+        () => selectedSucId ? sucursales.find((s) => s._id === selectedSucId) : null,
+        [sucursales, selectedSucId]
+    );
+
     useEffect(() => {
         if (isOpen) {
+            const initialRestId = insumo?.id_restaurante?._id || insumo?.id_restaurante || selectedRestaurantId;
+            const initialSucId = insumo?.id_sucursal || selectedSucursalId;
+            setSelectedRestId(initialRestId);
+            setSelectedSucId(initialSucId);
+            prevRestId.current = null;
+            prevSucId.current = null;
             setForm({
-                id_restaurante: insumo?.id_restaurante?._id || insumo?.id_restaurante || selectedRestaurantId,
+                id_restaurante: initialRestId,
+                id_sucursal: initialSucId,
                 nombre_insumo: insumo?.nombre_insumo || "",
                 stock_actual: insumo?.stock_actual ?? "",
                 stock_minimo: insumo?.stock_minimo ?? "",
             });
         }
-    }, [isOpen, insumo, selectedRestaurantId]);
+    }, [isOpen, insumo, selectedRestaurantId, selectedSucursalId]);
+
+    useEffect(() => {
+        if (prevRestId.current === null) {
+            prevRestId.current = selectedRestId;
+            return;
+        }
+        if (prevRestId.current !== selectedRestId) {
+            setForm((prev) => ({ ...prev, id_restaurante: selectedRestId, id_sucursal: "" }));
+            setSelectedSucId("");
+            prevRestId.current = selectedRestId;
+        }
+    }, [selectedRestId]);
+
+    useEffect(() => {
+        if (prevSucId.current === null) {
+            prevSucId.current = selectedSucId;
+            return;
+        }
+        if (prevSucId.current !== selectedSucId) {
+            setForm((prev) => ({ ...prev, id_sucursal: selectedSucId }));
+            prevSucId.current = selectedSucId;
+        }
+    }, [selectedSucId]);
+
+    const handleRestaurantPick = (restaurant) => {
+        setSelectedRestId(restaurant._id);
+        setSelectedSucId("");
+        setForm((prev) => ({ ...prev, id_restaurante: restaurant._id, id_sucursal: "" }));
+    };
+
+    const handleSucursalPick = (sucursal) => {
+        setSelectedSucId(sucursal._id);
+        setForm((prev) => ({ ...prev, id_sucursal: sucursal._id }));
+    };
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -36,19 +98,7 @@ export const InventoryModal = ({ isOpen, onClose, insumo = null, selectedRestaur
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            if (isEditing) {
-                await updateInsumoRequest(insumo._id, {
-                    stock_actual: Number(form.stock_actual),
-                    stock_minimo: Number(form.stock_minimo),
-                });
-            } else {
-                await createInsumo({
-                    id_restaurante: form.id_restaurante,
-                    nombre_insumo: form.nombre_insumo,
-                    stock_actual: Number(form.stock_actual),
-                    stock_minimo: Number(form.stock_minimo),
-                });
-            }
+            await saveInsumo(form, insumo?._id ?? null);
             showSuccess(isEditing ? "Insumo actualizado correctamente" : "Insumo creado correctamente");
             onSaved?.();
             onClose();
@@ -60,7 +110,7 @@ export const InventoryModal = ({ isOpen, onClose, insumo = null, selectedRestaur
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#E8D8C3]">
 
                 {/* HEADER */}
@@ -83,21 +133,47 @@ export const InventoryModal = ({ isOpen, onClose, insumo = null, selectedRestaur
                     {/* Restaurante — bloqueado al editar por index único */}
                     <div>
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante *</label>
-                        <select
-                            name="id_restaurante"
-                            value={form.id_restaurante}
-                            onChange={handleChange}
-                            required
-                            disabled={isEditing}
-                            className={`w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors ${isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
-                        >
-                            <option value="">Seleccionar restaurante...</option>
-                            {restaurants.map((r) => (
-                                <option key={r._id} value={r._id}>{r.nombre}</option>
-                            ))}
-                        </select>
+                        {selectedRestId && selectedRestaurantObj ? (
+                            <button type="button" disabled={isEditing} onClick={() => !isEditing && setRestPickerOpen(true)} className={`w-full flex items-center gap-2 px-4 py-2.5 border border-[#E67E22] bg-[#E67E22]/5 rounded-xl text-left transition-colors ${!isEditing ? "cursor-pointer hover:bg-[#E67E22]/10" : "cursor-not-allowed opacity-60"}`}>
+                                <div className="w-6 h-6 rounded-lg bg-[#E67E22]/20 flex items-center justify-center shrink-0">
+                                    <Store size={12} className="text-[#E67E22]" />
+                                </div>
+                                <span className="text-sm font-semibold text-[#2B2B2B] truncate flex-1">{selectedRestaurantObj.nombre}</span>
+                                {!isEditing && <ChevronDown size={14} className="text-[#6B6B6B] shrink-0" />}
+                            </button>
+                        ) : (
+                            <button type="button" onClick={() => setRestPickerOpen(true)} className="w-full flex items-center gap-3 px-4 py-2.5 border border-[#E8D8C3] bg-[#F5EFE6]/50 hover:border-[#D3C4B0] rounded-xl text-sm transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-[#E8D8C3] flex items-center justify-center shrink-0">
+                                    <Store size={14} className="text-[#6B6B6B]" />
+                                </div>
+                                <span className="text-[#6B6B6B]">Seleccionar restaurante...</span>
+                            </button>
+                        )}
                         {isEditing && <p className="text-[10px] text-[#6B6B6B] mt-1">El restaurante no puede modificarse</p>}
                     </div>
+
+                    {/* Sucursal */}
+                    {tieneSucursales && (
+                        <div>
+                            <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Sucursal *</label>
+                            {selectedSucId && selectedSucursalObj ? (
+                                <button type="button" disabled={isEditing} onClick={() => !isEditing && setSucPickerOpen(true)} className={`w-full flex items-center gap-2 px-4 py-2.5 border border-[#A9C7E8] bg-blue-50 rounded-xl text-left transition-colors ${!isEditing ? "cursor-pointer hover:bg-blue-100" : "cursor-not-allowed opacity-60"}`}>
+                                    <div className="w-6 h-6 rounded-lg bg-[#A9C7E8]/30 flex items-center justify-center shrink-0">
+                                        <MapPin size={12} className="text-blue-700" />
+                                    </div>
+                                    <span className="text-sm font-semibold text-[#2B2B2B] truncate flex-1">{selectedSucursalObj.nombre}</span>
+                                    {!isEditing && <ChevronDown size={14} className="text-[#6B6B6B] shrink-0" />}
+                                </button>
+                            ) : (
+                                <button type="button" onClick={() => setSucPickerOpen(true)} className="w-full flex items-center gap-3 px-4 py-2.5 border border-[#E8D8C3] bg-[#F5EFE6]/50 hover:border-[#D3C4B0] rounded-xl text-sm transition-colors">
+                                    <div className="w-8 h-8 rounded-lg bg-[#E8D8C3] flex items-center justify-center shrink-0">
+                                        <MapPin size={14} className="text-[#6B6B6B]" />
+                                    </div>
+                                    <span className="text-[#6B6B6B]">Seleccionar sucursal...</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                     {/* Nombre insumo — bloqueado al editar */}
                     <div>
@@ -160,6 +236,20 @@ export const InventoryModal = ({ isOpen, onClose, insumo = null, selectedRestaur
                     </div>
                 </form>
             </div>
+
+            <RestaurantPickerModal
+                isOpen={restPickerOpen}
+                onClose={() => setRestPickerOpen(false)}
+                onSelect={handleRestaurantPick}
+                selectedId={selectedRestId}
+            />
+            <SucursalPickerModal
+                isOpen={sucPickerOpen}
+                onClose={() => setSucPickerOpen(false)}
+                onSelect={handleSucursalPick}
+                sucursales={selectedRestaurantObj?.sucursales ?? []}
+                selectedId={selectedSucId}
+            />
         </div>
     );
 };
