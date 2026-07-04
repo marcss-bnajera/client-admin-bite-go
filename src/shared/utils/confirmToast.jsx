@@ -1,9 +1,9 @@
 import { toast } from "react-hot-toast";
-import { AlertTriangle, Trash2, PowerOff } from "lucide-react";
+import { AlertTriangle, Trash2, PowerOff, CheckCircle } from "lucide-react";
 
 /**
  * showConfirmToast({ title, message, type, onConfirm })
- * type: "deactivate" | "delete" | "activate"
+ * type: "deactivate" | "delete" | "activate" | "checkin"
  */
 export function showConfirmToast({ title, message, type = "deactivate", onConfirm }) {
     const config = {
@@ -21,6 +21,11 @@ export function showConfirmToast({ title, message, type = "deactivate", onConfir
             icon: <PowerOff size={20} className="text-[#0F6E56]" />,
             confirmLabel: "Reactivar",
             confirmClass: "bg-[#0F6E56] hover:bg-[#0a5240]",
+        },
+        checkin: {
+            icon: <CheckCircle size={20} className="text-[#27AE60]" />,
+            confirmLabel: "Marcar",
+            confirmClass: "bg-[#27AE60] hover:bg-[#1E8449]",
         },
     };
 

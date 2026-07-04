@@ -26,7 +26,10 @@ export const AvatarUser = () => {
         navigate("/", { replace: true });
     };
 
-    const avatarSrc = user?.profilePicture && user.profilePicture.trim() !== ""
+    const avatarSrc = user?.profilePicture
+        && user.profilePicture.trim() !== ""
+        && user.profilePicture.includes("res.cloudinary.com")
+        && !user.profilePicture.includes("default-avatar")
         ? user.profilePicture : defaultAvatarImg;
 
     return (
@@ -49,6 +52,7 @@ export const AvatarUser = () => {
                             src={avatarSrc}
                             alt={user?.username}
                             className="w-10 h-10 rounded-full object-cover border border-[#E8D8C3]"
+                            onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatarImg; }}
                         />
                         <div>
                             <p className="font-semibold text-white">{user?.username}</p>
