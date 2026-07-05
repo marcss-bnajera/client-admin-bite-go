@@ -6,7 +6,7 @@ export const useSaveRecipeItem = () => {
 
     const saveRecipeItem = async (data, productId, recipeId = null) => {
         const payload = {
-            id_insumo: data.id_insumo,
+            nombre_insumo: data.nombre_insumo,
             cantidad_requerida: Number(data.cantidad_requerida),
         };
 

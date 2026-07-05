@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Search, Pencil, Trash2, Layers, ChevronUp, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, Layers, ChevronUp, ChevronDown } from "lucide-react";
 import { Pagination } from "../../../shared/components/ui/Pagination";
+import { RestaurantFilterBar } from "../../../shared/components/ui/RestaurantFilterBar";
 import { ItemModal } from "./ItemModal";
 import { useOrders } from "../../orders/hooks/useOrders";
 import { useItemsStore } from "../store/itemsStore";
@@ -26,13 +27,23 @@ export const Items = () => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [search, setSearch] = useState("");
+    const [filterRestaurant, setFilterRestaurant] = useState("");
+    const [filterSucursal, setFilterSucursal] = useState("");
     const [expandedOrder, setExpandedOrder] = useState(null);
     const [page, setPage] = useState(1);
 
-    const filtered = (orders ?? []).filter((o) =>
-        o.id_usuario_cliente?.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-        o.id_restaurante?.nombre?.toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = (orders ?? []).filter((o) => {
+        const matchRestaurant = filterRestaurant
+            ? o.id_restaurante?._id === filterRestaurant
+            : true;
+        const matchSucursal = filterSucursal
+            ? o.id_sucursal === filterSucursal
+            : true;
+        const matchSearch =
+            o.cliente_nombre?.toLowerCase().includes(search.toLowerCase()) ||
+            o.id_restaurante?.nombre?.toLowerCase().includes(search.toLowerCase());
+        return matchRestaurant && matchSucursal && matchSearch;
+    });
 
     const totalPages = Math.ceil(filtered.length / LIMIT);
     const paginated = filtered.slice((page - 1) * LIMIT, page * LIMIT);
@@ -68,16 +79,21 @@ export const Items = () => {
                 </div>
             </div>
 
-            {/* BUSCADOR (Responsivo en móviles ocupando el ancho completo, auto-limitado en PC) */}
-            <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 sm:h-10 w-full sm:max-w-md shadow-sm focus-within:border-[#E67E22] transition-colors">
-                <Search size={15} className="text-[#6B6B6B] shrink-0" />
-                <input
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B] font-inherit"
-                    placeholder="Buscar por cliente o restaurante..."
-                />
-            </div>
+            {/* FILTROS */}
+            <RestaurantFilterBar
+                filterRestaurant={filterRestaurant}
+                onRestaurantChange={setFilterRestaurant}
+                filterSucursal={filterSucursal}
+                onSucursalChange={setFilterSucursal}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar por cliente..."
+                showActiveFilter={false}
+                showStatusFilter={false}
+                onPageReset={setPage}
+                emptyMessage="Seleccioná un restaurante para ver sus items"
+                showEmptyState={false}
+            />
 
             {/* LISTA */}
             {loading ? (
@@ -104,7 +120,7 @@ export const Items = () => {
                                             <Layers size={15} className="text-white" />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="font-bold text-[#2B2B2B] text-sm sm:text-base truncate">{pedido.id_usuario_cliente?.nombre || "—"}</p>
+                                            <p className="font-bold text-[#2B2B2B] text-sm sm:text-base truncate">{pedido.cliente_nombre || "—"}</p>
                                             <p className="text-xs text-[#6B6B6B] truncate">{pedido.id_restaurante?.nombre || "—"}</p>
                                         </div>
                                     </div>

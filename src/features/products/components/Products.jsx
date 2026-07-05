@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
-import { Plus, Search, Pencil, ImageOff, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Pencil, ImageOff, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductModal } from "./ProductModal";
+import { RestaurantFilterBar } from "../../../shared/components/ui/RestaurantFilterBar";
 import { useProducts } from "../hooks/useProducts";
 import { useProductsStore } from "../store/productsStore";
-import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { showConfirmToast } from "../../../shared/utils/confirmToast";
 
 const categoriaColor = {
@@ -19,8 +19,6 @@ const PAGE_SIZE = 9;
 export const Products = () => {
     const { products, loading, getProducts } = useProducts();
     const { deleteProduct, activateProduct } = useProductsStore();
-    const restaurants = useRestaurantsStore((state) => state.restaurants);
-    const getRestaurants = useRestaurantsStore((state) => state.getRestaurants);
 
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -29,8 +27,6 @@ export const Products = () => {
     const [filterRest, setFilterRest] = useState("");
     const [filterEstado, setFilterEstado] = useState("activo");
     const [filterDisp, setFilterDisp] = useState("");
-
-    useEffect(() => { getRestaurants(); }, []);
 
     const filtered = useMemo(() => {
         return (products ?? []).filter((p) => {
@@ -59,7 +55,6 @@ export const Products = () => {
 
     const handleNew = () => { setSelectedProduct(null); setModalOpen(true); };
     const handleEdit = (p) => { setSelectedProduct(p); setModalOpen(true); };
-    const handleFilter = (setter) => (e) => { setter(e.target.value); setPage(1); };
 
     const handleToggle = (p) => {
         if (p.activo) {
@@ -79,9 +74,6 @@ export const Products = () => {
         }
     };
 
-    // Estilos optimizados: Quitamos el truncado forzoso y permitimos flexibilidad controlada
-    const selectClass = "h-11 lg:h-10 px-3 text-xs sm:text-sm border border-[#E8D8C3] rounded-xl bg-white text-[#2B2B2B] outline-none focus:border-[#E67E22] transition-colors cursor-pointer w-full bg-no-repeat pr-8";
-
     return (
         <div className="space-y-6 max-w-full px-1 sm:px-0 overflow-x-hidden">
 
@@ -99,85 +91,28 @@ export const Products = () => {
                 </button>
             </div>
 
-            {/* TOOLBAR */}
-            <div className="flex flex-col gap-2 pb-4 border-b border-[#E8D8C3] w-full transition-all duration-500 ease-in-out">
-
-                {/* FILA PRINCIPAL*/}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full transition-all duration-500 ease-in-out">
-
-                    {/* Buscador*/}
-                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-11 lg:h-10 w-full sm:max-w-xs shadow-sm focus-within:border-[#E67E22] transition-colors shrink-0">
-                        <Search size={16} className="text-[#6B6B6B] shrink-0" />
-                        <input
-                            value={search}
-                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                            className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B]"
-                            placeholder="Buscar producto..."
-                        />
-                    </div>
-
-                    <div className="hidden lg:flex lg:items-center gap-2 transition-all duration-500">
-                        <div className="w-[200px] shrink-0">
-                            <select value={filterRest} onChange={handleFilter(setFilterRest)} className={selectClass}>
-                                <option value="">Todos los restaurantes</option>
-                                {restaurants.map((r) => (
-                                    <option key={r._id} value={r._id}>{r.nombre}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="w-[110px] shrink-0">
-                            <select value={filterEstado} onChange={handleFilter(setFilterEstado)} className={selectClass}>
-                                <option value="activo">Activos</option>
-                                <option value="inactivo">Inactivos</option>
-                                <option value="">Todos</option>
-                            </select>
-                        </div>
-                        <div className="w-[140px] shrink-0">
-                            <select value={filterDisp} onChange={handleFilter(setFilterDisp)} className={selectClass}>
-                                <option value="">Disponibilidad</option>
-                                <option value="si">Disponible</option>
-                                <option value="no">No disponible</option>
-                            </select>
-                        </div>
-                    </div>
-
-                </div>
-
-                {/* FILA SECUNDARIA*/}
-                <div className="flex flex-col xs:flex-row gap-2 w-full lg:hidden transition-all duration-500 ease-in-out transform origin-top">
-
-                    {/* Selector de Restaurantes completo en iPad */}
-                    <div className="w-full xs:w-[200px] shrink-0 transition-all duration-300">
-                        <select value={filterRest} onChange={handleFilter(setFilterRest)} className={selectClass}>
-                            <option value="">Todos los restaurantes</option>
-                            {restaurants.map((r) => (
-                                <option key={r._id} value={r._id}>{r.nombre}</option>
-                            ))}
+            <RestaurantFilterBar
+                filterRestaurant={filterRest}
+                onRestaurantChange={setFilterRest}
+                showSucursal={false}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar producto..."
+                filterActivo={filterEstado}
+                onActivoChange={setFilterEstado}
+                showActiveFilter
+                onPageReset={setPage}
+                showEmptyState={false}
+                extraFilters={
+                    <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-3 h-10 w-full sm:w-[140px] focus-within:border-[#E67E22] transition-colors">
+                        <select value={filterDisp} onChange={(e) => { setFilterDisp(e.target.value); setPage(1); }} className="outline-none text-sm bg-transparent text-[#6B6B6B] cursor-pointer w-full truncate pr-1">
+                            <option value="">Disponibilidad</option>
+                            <option value="si">Disponible</option>
+                            <option value="no">No disponible</option>
                         </select>
                     </div>
-
-                    {/* Selectores Secundarios juntos en iPad */}
-                    <div className="grid grid-cols-2 xs:flex xs:flex-row gap-2 w-full xs:w-auto shrink-0 transition-all duration-300">
-                        <div className="w-full xs:w-[110px] shrink-0">
-                            <select value={filterEstado} onChange={handleFilter(setFilterEstado)} className={selectClass}>
-                                <option value="activo">Activos</option>
-                                <option value="inactivo">Inactivos</option>
-                                <option value="">Todos</option>
-                            </select>
-                        </div>
-
-                        <div className="w-full xs:w-[140px] shrink-0">
-                            <select value={filterDisp} onChange={handleFilter(setFilterDisp)} className={selectClass}>
-                                <option value="">Disponibilidad</option>
-                                <option value="si">Disponible</option>
-                                <option value="no">No disponible</option>
-                            </select>
-                        </div>
-                    </div>
-
-                </div>
-
-            </div>
+                }
+            />
 
             {/* CONTENIDO PRINCIPAL */}
             {loading ? (

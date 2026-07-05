@@ -65,7 +65,7 @@ export const ItemModal = ({ isOpen, onClose, item = null, orderId = null, onSave
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#E8D8C3]">
 
                 {/* HEADER */}

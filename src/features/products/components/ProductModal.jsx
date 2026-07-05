@@ -1,13 +1,14 @@
-import { X, UtensilsCrossed, ImagePlus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { X, UtensilsCrossed, ImagePlus, Store, ChevronDown } from "lucide-react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useSaveProduct } from "../hooks/useSaveProduct";
 import { useProductsStore } from "../store/productsStore";
 import { useRestaurantsStore } from "../../restaurants/store/restaurantsStore";
 import { useCategoriesStore } from "../../categories/store/categoriesStore";
 import { showSuccess, showError } from "../../../shared/utils/toast";
+import { RestaurantPickerModal } from "../../../shared/components/ui/RestaurantPickerModal";
 
-export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
+export const ProductModal = ({ isOpen, onClose, product = null, restauranteId = null, onSaved }) => {
     const isEditing = !!product;
     const { saveProduct } = useSaveProduct();
     const loading = useProductsStore((state) => state.loading);
@@ -18,7 +19,17 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
 
     const [filteredCategories, setFilteredCategories] = useState([]);
     const [preview, setPreview] = useState(null);
-    const [existingPhoto, setExistingPhoto] = useState(null); // foto ya guardada
+    const [existingPhoto, setExistingPhoto] = useState(null);
+
+    const [selectedRestId, setSelectedRestId] = useState("");
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const prevRestaurantId = useRef(null);
+    const skipPick = useRef(false);
+
+    const selectedRestaurantObj = useMemo(
+        () => restaurants.find((r) => r._id === selectedRestId),
+        [restaurants, selectedRestId]
+    );
 
     const {
         register,
@@ -26,6 +37,7 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
         reset,
         watch,
         setValue,
+        trigger,
         formState: { errors },
     } = useForm();
 
@@ -60,10 +72,16 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
     useEffect(() => {
         if (isOpen) {
             setPreview(null);
+            const initialRestId = product
+                ? (product?.id_restaurante?._id || product?.id_restaurante || "")
+                : (restauranteId || "");
+            setSelectedRestId(initialRestId);
+            prevRestaurantId.current = null;
+            skipPick.current = false;
             if (product) {
                 setExistingPhoto(product.foto_url?.[0] ?? null);
                 reset({
-                    id_restaurante: product?.id_restaurante?._id || product?.id_restaurante || "",
+                    id_restaurante: initialRestId,
                     nombre: product?.nombre || "",
                     descripcion: product?.descripcion || "",
                     categoria: product?.categoria?._id || product?.categoria || "",
@@ -73,7 +91,7 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
             } else {
                 setExistingPhoto(null);
                 reset({
-                    id_restaurante: "",
+                    id_restaurante: restauranteId || "",
                     nombre: "",
                     descripcion: "",
                     categoria: "",
@@ -82,7 +100,32 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
                 });
             }
         }
-    }, [isOpen, product, reset]);
+    }, [isOpen, product, restauranteId, reset]);
+
+    useEffect(() => {
+        if (prevRestaurantId.current === null) {
+            prevRestaurantId.current = selectedRestId;
+            return;
+        }
+        if (skipPick.current) {
+            skipPick.current = false;
+            prevRestaurantId.current = selectedRestId;
+            return;
+        }
+        if (prevRestaurantId.current !== selectedRestId) {
+            setValue("id_restaurante", selectedRestId, { shouldValidate: true });
+            prevRestaurantId.current = selectedRestId;
+        }
+    }, [selectedRestId, setValue]);
+
+    const handleRestaurantPick = (restaurant) => {
+        skipPick.current = true;
+        setSelectedRestId(restaurant._id);
+        setValue("id_restaurante", restaurant._id, { shouldValidate: true });
+        if (errors.id_restaurante) {
+            trigger("id_restaurante");
+        }
+    };
 
     const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif'];
     const ALLOWED_LABEL = 'JPEG, JPG, PNG, WEBP o AVIF';
@@ -104,7 +147,10 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
             onSaved?.();
             onClose();
         } catch (error) {
-            const mensaje = error?.response?.data?.message || "Error al guardar el producto";
+            const data = error?.response?.data;
+            const mensaje = data?.message
+                || (data?.errors ? data.errors.map(e => e.msg).join(", ") : null)
+                || "Error al guardar el producto";
             showError(mensaje);
         }
     };
@@ -112,7 +158,7 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-[#E8D8C3] max-h-[90vh] overflow-y-auto">
 
                 {/* HEADER */}
@@ -135,18 +181,22 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
                     {/* Restaurante */}
                     <div className="flex flex-col">
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">Restaurante *</label>
-                        <select
-                            disabled={isEditing}
-                            className={`w-full px-4 py-2.5 border rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors
-                                ${errors.id_restaurante ? "border-red-400" : "border-[#E8D8C3]"}
-                                ${isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
-                            {...register("id_restaurante", { required: "Debes seleccionar un restaurante" })}
-                        >
-                            <option value="">Seleccionar restaurante...</option>
-                            {restaurants.map((r) => (
-                                <option key={r._id} value={r._id}>{r.nombre}</option>
-                            ))}
-                        </select>
+                        {selectedRestId && selectedRestaurantObj ? (
+                            <button type="button" disabled={isEditing} onClick={() => !isEditing && setPickerOpen(true)} className={`w-full flex items-center gap-2 px-4 py-2.5 border border-[#E67E22] bg-[#E67E22]/5 rounded-xl text-left transition-colors ${!isEditing ? "cursor-pointer hover:bg-[#E67E22]/10" : "cursor-not-allowed opacity-60"}`}>
+                                <div className="w-6 h-6 rounded-lg bg-[#E67E22]/20 flex items-center justify-center shrink-0">
+                                    <Store size={12} className="text-[#E67E22]" />
+                                </div>
+                                <span className="text-sm font-semibold text-[#2B2B2B] truncate flex-1">{selectedRestaurantObj.nombre}</span>
+                                {!isEditing && <ChevronDown size={14} className="text-[#6B6B6B] shrink-0" />}
+                            </button>
+                        ) : (
+                            <button type="button" onClick={() => setPickerOpen(true)} className={`w-full flex items-center gap-3 px-4 py-2.5 border rounded-xl text-sm transition-colors ${errors.id_restaurante ? "border-red-400 bg-red-50" : "border-[#E8D8C3] bg-[#F5EFE6]/50 hover:border-[#D3C4B0]"}`}>
+                                <div className="w-8 h-8 rounded-lg bg-[#E8D8C3] flex items-center justify-center shrink-0">
+                                    <Store size={14} className="text-[#6B6B6B]" />
+                                </div>
+                                <span className="text-[#6B6B6B]">Seleccionar restaurante...</span>
+                            </button>
+                        )}
                         {errors.id_restaurante && <span className="text-red-500 text-xs mt-1">{errors.id_restaurante.message}</span>}
                         {isEditing && <p className="text-[10px] text-[#6B6B6B] mt-1">El restaurante no puede modificarse</p>}
                     </div>
@@ -310,6 +360,13 @@ export const ProductModal = ({ isOpen, onClose, product = null, onSaved }) => {
                     </div>
                 </div>
             </div>
+
+            <RestaurantPickerModal
+                isOpen={pickerOpen}
+                onClose={() => setPickerOpen(false)}
+                onSelect={handleRestaurantPick}
+                selectedId={selectedRestId}
+            />
         </div>
     );
 };

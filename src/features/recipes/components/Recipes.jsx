@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Plus, Search, Pencil, Trash2, BookOpen, FlaskConical } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, FlaskConical } from "lucide-react";
 import { RecipeModal } from "./RecipeModal";
+import { RestaurantFilterBar } from "../../../shared/components/ui/RestaurantFilterBar";
 import { useProducts } from "../../products/hooks/useProducts";
 import { useProductsStore } from "../../products/store/productsStore";
 import { showConfirmToast } from "../../../shared/utils/confirmToast";
@@ -14,17 +15,21 @@ export const Recipes = () => {
     const [selectedProductId, setSelectedProductId] = useState(null);
     const [selectedRestauranteId, setSelectedRestauranteId] = useState(null);
     const [search, setSearch] = useState("");
+    const [filterRestaurant, setFilterRestaurant] = useState("");
 
-    const productsWithRecipes = (products ?? []).filter((p) =>
-        p.nombre.toLowerCase().includes(search.toLowerCase()) ||
-        p.id_restaurante?.nombre?.toLowerCase().includes(search.toLowerCase())
-    );
+    const productsWithRecipes = (products ?? []).filter((p) => {
+        const matchRestaurant = filterRestaurant
+            ? p.id_restaurante?._id === filterRestaurant || p.id_restaurante === filterRestaurant
+            : true;
+        const matchSearch = p.nombre.toLowerCase().includes(search.toLowerCase());
+        return matchRestaurant && matchSearch;
+    });
 
     const handleAddIngredient = (productId, idRestaurante) => { setSelectedIngredient(null); setSelectedProductId(productId); setSelectedRestauranteId(idRestaurante); setModalOpen(true); };
     const handleEditIngredient = (ingredient, productId, idRestaurante) => { setSelectedIngredient(ingredient); setSelectedProductId(productId); setSelectedRestauranteId(idRestaurante); setModalOpen(true); };
 
     const handleDeleteIngredient = (productId, ing) => {
-        const nombreInsumo = ing.id_insumo?.nombre_insumo ?? "este ingrediente";
+        const nombreInsumo = ing.nombre_insumo ?? "este ingrediente";
         showConfirmToast({
             title: "Eliminar ingrediente",
             message: `¿Eliminar "${nombreInsumo}" de la receta?`,
@@ -44,15 +49,17 @@ export const Recipes = () => {
             </div>
 
             {/* BARRA DE BÚSQUEDA */}
-            <div className="flex items-center gap-2 bg-white border border-[#E8D8C3] rounded-xl px-4 py-2.5 w-full md:max-w-md shadow-sm">
-                <Search size={18} className="text-[#6B6B6B] shrink-0" />
-                <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="outline-none text-sm w-full bg-transparent text-[#2B2B2B] placeholder:text-[#6B6B6B]"
-                    placeholder="Buscar por producto o restaurante..."
-                />
-            </div>
+            <RestaurantFilterBar
+                filterRestaurant={filterRestaurant}
+                onRestaurantChange={setFilterRestaurant}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Buscar producto..."
+                showSucursal={false}
+                showActiveFilter={false}
+                showStatusFilter={false}
+                showEmptyState={false}
+            />
 
             {/* GRID DE RECETAS */}
             <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-5">
@@ -100,8 +107,8 @@ export const Recipes = () => {
                                     <div key={ing._id} className="flex items-center justify-between bg-[#F5EFE6] rounded-xl px-3 py-2.5">
                                         <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
                                             <FlaskConical size={14} className="text-[#E67E22] shrink-0" />
-                                            <span className="text-xs text-[#2B2B2B] font-semibold truncate" title={ing.id_insumo?.nombre_insumo ?? ing.id_insumo}>
-                                                {ing.id_insumo?.nombre_insumo ?? "Insumo eliminado"}
+                                            <span className="text-xs text-[#2B2B2B] font-semibold truncate" title={ing.nombre_insumo}>
+                                                {ing.nombre_insumo ?? "Insumo sin nombre"}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0 ml-2">

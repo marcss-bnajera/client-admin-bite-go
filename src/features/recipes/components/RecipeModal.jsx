@@ -1,10 +1,11 @@
-import { X, FlaskConical } from "lucide-react";
-import { useEffect, useState } from "react";
+import { X, FlaskConical, Package, Check, AlertTriangle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useSaveRecipeItem } from "../hooks/useSaveRecipeItem";
 import { useProductsStore } from "../../products/store/productsStore";
 import { useInventoryStore } from "../../inventory/store/inventoryStore";
 import { showSuccess, showError } from "../../../shared/utils/toast";
+import { SupplyPickerModal } from "./SupplyPickerModal";
 
 export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = null, idRestaurante = null, onSaved }) => {
     const isEditing = !!ingredient;
@@ -14,28 +15,43 @@ export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = nu
     const inventory = useInventoryStore((state) => state.inventory);
     const getInventoryByRestaurant = useInventoryStore((state) => state.getInventoryByRestaurant);
 
-    const { register, handleSubmit, reset, formState: { errors } } = useForm();
+    const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
+    const [pickerInsumo, setPickerInsumo] = useState(null);
+    const [pickerOpen, setPickerOpen] = useState(false);
 
-    // Cargar insumos del restaurante al abrir
+    const insumosActivos = useMemo(() => inventory.filter((i) => i.activo), [inventory]);
+
+    const ingredientKey = ingredient?._id ?? "new";
+    const selectedInsumo = useMemo(() => {
+        if (pickerInsumo) return pickerInsumo;
+        if (!ingredient) return null;
+        const nombre = ingredient.nombre_insumo;
+        if (!nombre) return null;
+        return inventory.find((i) => i.nombre_insumo === nombre) || { nombre_insumo: nombre, stock_actual: "?" };
+    }, [pickerInsumo, ingredient, inventory]);
+
     useEffect(() => {
         if (isOpen && idRestaurante) {
             getInventoryByRestaurant(idRestaurante, { activo: true });
         }
-    }, [isOpen, idRestaurante]);
+    }, [isOpen, idRestaurante, getInventoryByRestaurant]);
 
     useEffect(() => {
-        if (isOpen) {
-            if (ingredient) {
-                reset({
-                    // Al editar, id_insumo viene populado como objeto
-                    id_insumo: ingredient.id_insumo?._id ?? ingredient.id_insumo ?? "",
-                    cantidad_requerida: ingredient.cantidad_requerida || "",
-                });
-            } else {
-                reset({ id_insumo: "", cantidad_requerida: "" });
-            }
+        if (!isOpen) return;
+        if (ingredient) {
+            reset({
+                nombre_insumo: ingredient.nombre_insumo ?? "",
+                cantidad_requerida: ingredient.cantidad_requerida || "",
+            });
+        } else {
+            reset({ nombre_insumo: "", cantidad_requerida: "" });
         }
-    }, [isOpen, ingredient, reset]);
+    }, [isOpen, ingredient, ingredientKey, reset]);
+
+    const handleSelectInsumo = (insumo) => {
+        setPickerInsumo(insumo);
+        setValue("nombre_insumo", insumo.nombre_insumo, { shouldValidate: true });
+    };
 
     const onSubmit = async (data) => {
         try {
@@ -43,6 +59,7 @@ export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = nu
             showSuccess(isEditing ? "Ingrediente actualizado correctamente" : "Ingrediente agregado correctamente");
             onSaved?.();
             reset();
+            setPickerInsumo(null);
             onClose();
         } catch (error) {
             const mensaje = error?.response?.data?.message || "Error al guardar el ingrediente";
@@ -52,10 +69,8 @@ export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = nu
 
     if (!isOpen) return null;
 
-    const insumosActivos = inventory.filter((i) => i.activo);
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#E8D8C3]">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D8C3] bg-[#3A2E2A] rounded-t-2xl">
                     <div className="flex items-center gap-3">
@@ -72,29 +87,48 @@ export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = nu
                 </div>
 
                 <div className="px-6 py-5 space-y-4">
-                    {/* SELECT de insumo desde inventario */}
+                    {/* Picker de insumo */}
                     <div>
                         <label className="block text-xs font-bold text-[#2B2B2B] uppercase tracking-wide mb-1">
                             Insumo del Inventario *
                         </label>
                         {insumosActivos.length === 0 ? (
-                            <div className="w-full px-4 py-2.5 border border-amber-300 rounded-xl text-sm text-amber-700 bg-amber-50">
-                                ⚠️ No hay insumos activos en el inventario de este restaurante. Crea uno primero.
+                            <div className="w-full px-4 py-2.5 border border-amber-300 rounded-xl text-sm text-amber-700 bg-amber-50 flex items-center gap-2">
+                                <AlertTriangle size={14} className="shrink-0" />
+                                No hay insumos activos. Crea uno en Inventario primero.
                             </div>
                         ) : (
-                            <select
-                                className="w-full px-4 py-2.5 border border-[#E8D8C3] rounded-xl text-sm text-[#2B2B2B] outline-none focus:border-[#E67E22] bg-[#F5EFE6]/50 transition-colors"
-                                {...register("id_insumo", { required: "Debes seleccionar un insumo" })}
+                            <button
+                                type="button"
+                                onClick={() => setPickerOpen(true)}
+                                className={`w-full text-left px-4 py-2.5 border rounded-xl text-sm transition-colors ${
+                                    errors.nombre_insumo
+                                        ? "border-red-400 bg-red-50"
+                                        : selectedInsumo
+                                            ? "border-[#E67E22] bg-[#E67E22]/5"
+                                            : "border-[#E8D8C3] bg-[#F5EFE6]/50 hover:border-[#D3C4B0]"
+                                }`}
                             >
-                                <option value="">Seleccionar insumo...</option>
-                                {insumosActivos.map((insumo) => (
-                                    <option key={insumo._id} value={insumo._id}>
-                                        {insumo.nombre_insumo} — Stock actual: {insumo.stock_actual}
-                                    </option>
-                                ))}
-                            </select>
+                                {selectedInsumo ? (
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <div className="w-6 h-6 rounded-lg bg-[#A8D5BA] flex items-center justify-center shrink-0">
+                                                <Check size={12} className="text-green-800" />
+                                            </div>
+                                            <span className="font-semibold text-[#2B2B2B] truncate">{selectedInsumo.nombre_insumo}</span>
+                                        </div>
+                                        <span className="text-[10px] text-[#6B6B6B] shrink-0">Stock: {selectedInsumo.stock_actual}</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 text-[#6B6B6B]">
+                                        <Package size={14} className="shrink-0" />
+                                        <span>Seleccionar insumo...</span>
+                                    </div>
+                                )}
+                            </button>
                         )}
-                        {errors.id_insumo && <span className="text-red-500 text-xs mt-1">{errors.id_insumo.message}</span>}
+                        <input type="hidden" {...register("nombre_insumo", { required: "Debes seleccionar un insumo" })} />
+                        {errors.nombre_insumo && <span className="text-red-500 text-xs mt-1 block">{errors.nombre_insumo.message}</span>}
                         <p className="text-[10px] text-[#6B6B6B] mt-1">Solo aparecen insumos activos del inventario de este restaurante</p>
                     </div>
 
@@ -117,7 +151,7 @@ export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = nu
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2 border-t border-[#E8D8C3]">
-                        <button type="button" onClick={() => { reset(); onClose(); }} className="px-4 py-2 rounded-xl border border-[#E8D8C3] text-sm font-semibold text-[#6B6B6B] hover:bg-[#F5EFE6] transition-colors">
+                        <button type="button" onClick={() => { reset(); setPickerInsumo(null); onClose(); }} className="px-4 py-2 rounded-xl border border-[#E8D8C3] text-sm font-semibold text-[#6B6B6B] hover:bg-[#F5EFE6] transition-colors">
                             Cancelar
                         </button>
                         <button type="button" onClick={handleSubmit(onSubmit)} disabled={loading || insumosActivos.length === 0} className="px-5 py-2 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-sm font-bold shadow-md transition-colors disabled:opacity-60">
@@ -126,6 +160,14 @@ export const RecipeModal = ({ isOpen, onClose, ingredient = null, productId = nu
                     </div>
                 </div>
             </div>
+
+            <SupplyPickerModal
+                isOpen={pickerOpen}
+                onClose={() => setPickerOpen(false)}
+                insumos={inventory}
+                onSelect={handleSelectInsumo}
+                selectedName={selectedInsumo?.nombre_insumo}
+            />
         </div>
     );
 };
