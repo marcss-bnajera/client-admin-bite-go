@@ -7,11 +7,11 @@ export const DashboardContainer = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
+        <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
             {/*Navbar*/}
             <Navbar onToggleSidebar={() => setSidebarOpen(prev => !prev)} />
 
-            <div className="flex flex-1 relative w-full">
+            <div className="flex flex-1 relative w-full min-h-0">
                 {/* Sidebar*/}
                 <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
