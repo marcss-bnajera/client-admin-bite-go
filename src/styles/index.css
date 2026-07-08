@@ -69,3 +69,11 @@
 .scrollbar-thin:hover::-webkit-scrollbar-thumb {
     background: rgba(58, 46, 42, 0.5);
 }
+
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}

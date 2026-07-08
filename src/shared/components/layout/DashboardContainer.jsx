@@ -23,7 +23,7 @@ export const DashboardContainer = () => {
                     />
                 )}
 
-                <main className="flex-1 p-4 sm:p-6 w-full min-w-0 overflow-y-auto">
+                <main className="flex-1 p-4 sm:p-6 w-full min-w-0 overflow-y-auto scrollbar-none">
                     {/*Children*/}
                     <Outlet />
                 </main>
